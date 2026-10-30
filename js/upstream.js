@@ -111,6 +111,7 @@
       s.version = b.version || null;
       s.files = b.files || {};
       s.checkedAt = s.checkedAt || 0;
+      s.changelog = s.changelog || b.changelog || [];
       Local.write(s);
       state = s;
     }
@@ -162,6 +163,7 @@
     if (s.version && cmpVersion(manifest.version, s.version) <= 0) {
       s.checkedAt = now();
       s.lastError = null;
+      s.changelog = manifest.changelog || s.changelog || [];
       Local.write(s);
       const info0 = { version: s.version, installed: s.version, updated: false, stale: manifest.version !== s.version };
       lastInfo = info0;
@@ -362,6 +364,14 @@
     body.innerHTML = '<p class="cl-empty">正在读取更新日志…</p>';
     const s = Local.read();
     let idx = (pending && pending.changelog) || s.changelog || [];
+    if (!idx.length) {
+      try {
+        const m = await loadManifest();
+        idx = m.changelog || [];
+        s.changelog = idx;
+        Local.write(s);
+      } catch (e) { /* 离线时保持空 */ }
+    }
     if (!idx.length) { body.innerHTML = '<p class="cl-empty">暂无更新记录</p>'; return; }
     idx = idx.slice(0, 12);
     const files = Array.from(new Set(idx.map((e) => e.file)));
