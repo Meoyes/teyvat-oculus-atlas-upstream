@@ -54,6 +54,20 @@
 
   function abs(path) { return new URL(path, location.href).href; }
 
+  // 版本号 YYYY.MM.DD.N 按段比较，用于防止 CDN 缓存旧清单导致「降级」
+  function cmpVersion(a, b) {
+    if (!a) return -1;
+    if (!b) return 1;
+    const pa = String(a).split('.').map((x) => parseInt(x, 10) || 0);
+    const pb = String(b).split('.').map((x) => parseInt(x, 10) || 0);
+    const n = Math.max(pa.length, pb.length);
+    for (let i = 0; i < n; i++) {
+      const x = pa[i] || 0, y = pb[i] || 0;
+      if (x !== y) return x < y ? -1 : 1;
+    }
+    return 0;
+  }
+
   async function fetchJSON(url) {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), CFG.timeout);
@@ -144,6 +158,16 @@
     }
 
     s.manifestVersion = manifest.version;
+    // 旧清单（CDN 滞后 / 回滚）不应用，直接当作「已是最新」
+    if (s.version && cmpVersion(manifest.version, s.version) <= 0) {
+      s.checkedAt = now();
+      s.lastError = null;
+      Local.write(s);
+      const info0 = { version: s.version, installed: s.version, updated: false, stale: manifest.version !== s.version };
+      lastInfo = info0;
+      renderStatus();
+      return publicInfo(info0);
+    }
     const d = diff(manifest, s.files);
     const info = {
       version: manifest.version,
@@ -405,7 +429,7 @@
 
   window.__GEL_UP = {
     config: CFG, check, apply, openChangelog, closeChangelog, isChangelogOpen,
-    diff, state: () => Local.read(), pending: () => pending,
+    diff, cmpVersion, state: () => Local.read(), pending: () => pending,
     reset() { localStorage.removeItem(KEY); state = {}; pending = null; },
   };
 
