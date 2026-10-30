@@ -145,6 +145,26 @@
    ],
    "removed": [],
    "bytes": 17540
+  },
+  {
+   "version": "2026.10.30.5",
+   "at": "2026-10-30T18:38+08:00",
+   "title": "新增 1 · 修改 2",
+   "tags": [
+    "消息",
+    "功能"
+   ],
+   "note": "新增公告通道（data/announce.json）：上游可直接推送消息，更新日志顶部展示",
+   "summary": "新增 1 · 修改 2",
+   "added": [
+    "data/announce.json"
+   ],
+   "changed": [
+    "css/style.css",
+    "js/upstream.js"
+   ],
+   "removed": [],
+   "bytes": 89140
   }
  ]
 }

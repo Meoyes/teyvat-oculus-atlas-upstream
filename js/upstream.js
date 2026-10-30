@@ -297,6 +297,37 @@
     return 'application/octet-stream';
   }
 
+  /* ------------------------------------------------ 公告（消息更新） */
+  async function loadAnnounce() {
+    const key = abs('data/announce.json');
+    try {
+      const c = await caches.open(CACHE);
+      const hit = await c.match(key, { ignoreSearch: true });
+      if (hit) return await hit.json();
+    } catch (e) { /* ignore */ }
+    try { return await (await fetch('data/announce.json', { cache: 'no-cache' })).json(); } catch (e) { /* ignore */ }
+    try {
+      const b = base || baseUrl();
+      const res = await fetch(b + 'data/announce.json?t=' + Math.floor(now() / 60000), { cache: 'no-store' });
+      if (res.ok) return await res.json();
+    } catch (e) { /* ignore */ }
+    return null;
+  }
+
+  function unseenAnnounce(doc) {
+    if (!doc || !Array.isArray(doc.items) || !doc.items.length) return [];
+    const seen = Local.read().announceSeen || [];
+    return doc.items.filter((it) => it && it.id && !seen.includes(it.id));
+  }
+
+  async function refreshAnnounceBadge() {
+    const btn = document.getElementById('btnChangelog');
+    if (!btn) return;
+    const doc = await loadAnnounce();
+    const un = unseenAnnounce(doc);
+    btn.classList.toggle('has-dot', un.length > 0);
+  }
+
   /* ------------------------------------------------ 自动检查 */
   async function auto() {
     let r;
@@ -363,6 +394,19 @@
     wrap.setAttribute('aria-hidden', 'false');
     body.innerHTML = '<p class="cl-empty">正在读取更新日志…</p>';
     const s = Local.read();
+    const ann = await loadAnnounce();
+    const annHtml = ann && Array.isArray(ann.items) && ann.items.length
+      ? `<section class="cl-ann"><p class="cl-ann-h">公告</p>${ann.items.map((it) =>
+          `<p class="cl-ann-item"><span>${(it.date || '').replace(/-/g, '/')}</span>${it.text || ''}</p>`).join('')}</section>`
+      : '';
+    if (ann && ann.items && ann.items.length) {
+      const seen = new Set(Local.read().announceSeen || []);
+      ann.items.forEach((it) => { if (it && it.id) seen.add(it.id); });
+      const st2 = Local.read();
+      st2.announceSeen = Array.from(seen).slice(-50);
+      Local.write(st2);
+      refreshAnnounceBadge();
+    }
     let idx = (pending && pending.changelog) || s.changelog || [];
     if (!idx.length) {
       try {
@@ -397,7 +441,7 @@
         ${items ? `<ul class="cl-list">${items}</ul>` : ''}
       </article>`);
     });
-    body.innerHTML = rows.join('') || '<p class="cl-empty">暂无更新记录</p>';
+    body.innerHTML = (annHtml + rows.join('')) || '<p class="cl-empty">暂无更新记录</p>';
   }
 
   function closeChangelog() {
@@ -431,6 +475,7 @@
     }
     const clBtn = document.getElementById('btnChangelog');
     if (clBtn) clBtn.addEventListener('click', openChangelog);
+    refreshAnnounceBadge();
     const closeEls = document.querySelectorAll('[data-close="changelog"]');
     closeEls.forEach((el) => el.addEventListener('click', closeChangelog));
     const cardClose = document.querySelector('#updCard .upd-close');
@@ -439,7 +484,7 @@
 
   window.__GEL_UP = {
     config: CFG, check, apply, openChangelog, closeChangelog, isChangelogOpen,
-    diff, cmpVersion, state: () => Local.read(), pending: () => pending,
+    diff, cmpVersion, loadAnnounce, state: () => Local.read(), pending: () => pending,
     reset() { localStorage.removeItem(KEY); state = {}; pending = null; },
   };
 

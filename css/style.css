@@ -1372,3 +1372,21 @@ svg{display:block}
 [data-theme="dark"] .cl-list li.is-add{color:#8fc9b1}
 [data-theme="dark"] .cl-list li.is-mod{color:#e0c793}
 [data-theme="dark"] .cl-list li.is-del{color:#e09a8e}
+
+/* 公告（消息更新） */
+.cl-ann{
+  padding:11px 12px;border-radius:10px;margin-bottom:11px;
+  background:linear-gradient(180deg,rgba(201,161,92,.13),rgba(201,161,92,.06));
+  border:1px solid rgba(179,137,76,.24);
+}
+.cl-ann-h{font-size:9.5px;letter-spacing:.16em;color:#8a6531;margin-bottom:6px}
+.cl-ann-item{font-size:11.5px;line-height:1.7;color:var(--ink-2);display:flex;gap:7px}
+.cl-ann-item span{font-family:var(--font-mono);font-size:9.5px;color:var(--ink-3);flex:none;padding-top:2px}
+#btnChangelog.has-dot{position:relative}
+#btnChangelog.has-dot::after{
+  content:'';position:absolute;top:5px;right:7px;width:5px;height:5px;border-radius:50%;
+  background:#c9705c;box-shadow:0 0 0 2px rgba(255,253,247,.9);
+}
+[data-theme="dark"] .cl-ann{background:rgba(203,169,108,.12);border-color:rgba(203,169,108,.26)}
+[data-theme="dark"] .cl-ann-h{color:#e0c793}
+[data-theme="dark"] #btnChangelog.has-dot::after{box-shadow:0 0 0 2px rgba(14,24,27,.9)}
