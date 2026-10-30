@@ -3,6 +3,12 @@
  "updated": "2026-10-30",
  "items": [
   {
+   "id": "20261030-cachefix",
+   "date": "2026-10-30",
+   "level": "info",
+   "text": "修复：更新后的资源曾被 Service Worker 激活误清空，现已保留；重新部署站点时仍以站点内置脚本为准。"
+  },
+  {
    "id": "20261030-upstream",
    "date": "2026-10-30",
    "level": "info",

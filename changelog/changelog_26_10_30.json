@@ -165,6 +165,23 @@
    ],
    "removed": [],
    "bytes": 89140
+  },
+  {
+   "version": "2026.10.30.6",
+   "at": "2026-10-30T22:44+08:00",
+   "title": "修改 1",
+   "tags": [
+    "消息",
+    "功能"
+   ],
+   "note": "修复 SW 激活误清空更新缓存；公告新增该修复说明",
+   "summary": "修改 1",
+   "added": [],
+   "changed": [
+    "data/announce.json"
+   ],
+   "removed": [],
+   "bytes": 560
   }
  ]
 }
