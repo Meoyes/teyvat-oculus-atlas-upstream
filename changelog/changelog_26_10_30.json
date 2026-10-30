@@ -97,6 +97,22 @@
    "changed": [],
    "removed": [],
    "bytes": 13875292
+  },
+  {
+   "version": "2026.10.30.2",
+   "at": "2026-10-30T18:33+08:00",
+   "title": "修改 1",
+   "tags": [
+    "功能"
+   ],
+   "note": "配置：上游地址指向 GitHub 正式仓库 Meoyes/teyvat-oculus-atlas-upstream",
+   "summary": "修改 1",
+   "added": [],
+   "changed": [
+    "js/upstream.js"
+   ],
+   "removed": [],
+   "bytes": 16234
   }
  ]
 }

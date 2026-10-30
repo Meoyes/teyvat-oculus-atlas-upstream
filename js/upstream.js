@@ -9,7 +9,7 @@
   const KEY = 'gel.upstream.v1';
 
   const DEFAULTS = {
-    owner: 'meoyes',
+    owner: 'Meoyes',
     repo: 'teyvat-oculus-atlas-upstream',
     branch: 'main',
     bases: [
