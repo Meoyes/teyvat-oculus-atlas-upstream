@@ -19,6 +19,29 @@
    ],
    "removed": [],
    "bytes": 189908
+  },
+  {
+   "version": "2026.10.31.2",
+   "at": "2026-10-31T15:58+08:00",
+   "title": "删除 7",
+   "tags": [
+    "修复",
+    "代码同步"
+   ],
+   "note": "移除 js/css：代码不再走上游增量通道（旧脚本会顶掉新版本）",
+   "summary": "删除 7",
+   "added": [],
+   "changed": [],
+   "removed": [
+    "css/style.css",
+    "js/app.js",
+    "js/cloud-config.js",
+    "js/cloud.js",
+    "js/lib.js",
+    "js/map.js",
+    "js/upstream.js"
+   ],
+   "bytes": 0
   }
  ]
 }
