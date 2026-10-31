@@ -720,7 +720,10 @@
     }
     el.classList.remove('is-warn');
     const defN = Object.keys(s.deferred || {}).length;
-    el.textContent = `资源 ${s.version} · ${when}检查` + (defN ? ` · ${defN} 项按需加载` : '');
+    /* 界面版本单独标出来：出问题时一眼能看出用户跑的是哪一版代码包 */
+    const cv = codeState().version;
+    el.textContent = `资源 ${s.version}` + (cv ? ` · 界面 ${cv}` : '') + ` · ${when}检查`
+      + (defN ? ` · ${defN} 项按需加载` : '');
   }
 
   function timeAgo(ts) {

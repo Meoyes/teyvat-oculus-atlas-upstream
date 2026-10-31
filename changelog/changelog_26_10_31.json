@@ -218,6 +218,26 @@
    "codeRemoved": [],
    "bytes": 0,
    "codeBytes": 160942
+  },
+  {
+   "version": "2026.10.31.7",
+   "at": "2026-10-31T19:16+08:00",
+   "title": "界面与功能更新",
+   "tags": [
+    "更新"
+   ],
+   "note": "侧栏显示当前界面（代码包）版本，便于排查版本不一致",
+   "summary": "代码 1",
+   "added": [],
+   "changed": [],
+   "removed": [],
+   "codeAdded": [],
+   "codeChanged": [
+    "js/upstream.js"
+   ],
+   "codeRemoved": [],
+   "bytes": 0,
+   "codeBytes": 36388
   }
  ]
 }
