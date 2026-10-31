@@ -12,6 +12,7 @@
     types: {},
     regions: [],
     markers: {},
+    atlas: {},
     areaRegion: {},
     mapRegion: {},
     done: new Set(),
@@ -20,6 +21,8 @@
     flat: [],
     visibleList: [],
     markerByKey: new Map(),
+    multi: new Set(),          // 框选/画笔/Ctrl 点选的多选集合（存 __key）
+    selectMode: null,          // 'rect' | 'brush' | null
     state: { regionId: null, layerId: null, filters: new Set(), hideDone: false, depthOnly: false, selKey: null },
     drawerTab: 'todo',
     map: null,
@@ -61,27 +64,42 @@
     return fetch(path, { cache: 'no-cache' });
   }
 
+  /* 手工覆盖层：upstream/assets/atlas/ 里的 md 发布时汇总成 data/atlas_overrides.json。
+     只覆盖文案与截图，坐标始终以地图数据为准。说明可以覆盖成空（表示清空），
+     截图只在填了值时才替换。 */
+  function applyAtlas(m) {
+    const ov = App.atlas && App.atlas[m.i];
+    if (!ov) return;
+    if (typeof ov.txt === 'string') m.txt = ov.txt;
+    if (typeof ov.img === 'string' && ov.img) m.img = ov.img;
+    if (typeof ov.title === 'string' && ov.title) m.__title = ov.title;
+  }
+
   async function boot() {
     loadStore();
     /* 全部数据一次并发拉：原来 4 个串行 await（maps → guide → anchors → guideExtra）
        在移动网络下等于多花 3 个 RTT，首屏白等一秒多 */
     let data;
     try {
-      const [mapsRes, guideRes, anchorsRes, guideExtraRes] = await Promise.all([
+      const [mapsRes, guideRes, anchorsRes, guideExtraRes, atlasRes] = await Promise.all([
         fetchData('data/maps.json'),
         fetchData('data/guide_shadow.json').catch(() => null),
         fetchData('data/anchors.json').catch(() => null),
         fetchData('data/guide_extra.json').catch(() => null),
+        fetchData('data/atlas_overrides.json').catch(() => null),
       ]);
       data = await mapsRes.json();
-      const [guide, anchors, guideExtra] = await Promise.all([
+      const [guide, anchors, guideExtra, atlas] = await Promise.all([
         guideRes ? guideRes.json().catch(() => null) : null,
         anchorsRes ? anchorsRes.json().catch(() => null) : null,
         guideExtraRes ? guideExtraRes.json().catch(() => null) : null,
+        atlasRes ? atlasRes.json().catch(() => null) : null,
       ]);
       App.guide = guide;
       App.anchors = anchors;
       App.guideExtra = guideExtra;
+      /* 手工维护的神瞳文案覆盖层（upstream/assets/atlas/ 发布时生成），按点位 id 生效 */
+      App.atlas = (atlas && atlas.points) || {};
     } catch (e) {
       document.getElementById('mapLoading').innerHTML = '数据加载失败，请刷新重试';
       return;
@@ -107,6 +125,7 @@
     mapIds.forEach((id, i) => {
       App.markers[id] = packs[i].markers || [];
       App.markers[id].forEach((m) => {
+        applyAtlas(m);
         m.__key = id + ':' + m.i;
         const rec = { mapId: Number(id), m };
         App.idx.set(m.__key, rec);
@@ -135,6 +154,7 @@
     Array.from(App.idx.keys()).forEach((k) => { if (k.indexOf(prefix) === 0) App.idx.delete(k); });
     App.flat = App.flat.filter((r) => String(r.mapId) !== id);
     d.markers.forEach((m) => {
+      applyAtlas(m);
       m.__key = prefix + m.i;
       const rec = { mapId: Number(id), m };
       App.idx.set(m.__key, rec);
@@ -606,6 +626,8 @@
       <span class="mk-badge b-todo">+</span><span class="mk-badge b-done">✓</span>`;
     el.addEventListener('click', (e) => {
       e.stopPropagation();
+      /* Ctrl / ⌘ + 左键：加入或移出多选，不打开详情 */
+      if (e.ctrlKey || e.metaKey) { toggleMulti(key); return; }
       selectMarker(mapId, m);
     });
     return { x: m.x, y: m.y, el, key, m, mapId };
@@ -643,7 +665,99 @@
       el.classList.toggle('is-done', App.done.has(key));
       el.classList.toggle('is-todo', App.todo.has(key));
       el.classList.toggle('is-active', App.state.selKey === key);
+      el.classList.toggle('is-multi', App.multi.has(key));
     });
+  }
+
+  /* ------------------------------------------------ 多选（框选 / 画笔 / Ctrl 点选） */
+  function pointInPoly(x, y, poly) {
+    let inside = false;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+      const xi = poly[i].x, yi = poly[i].y;
+      const xj = poly[j].x, yj = poly[j].y;
+      if (((yi > y) !== (yj > y)) && (x < ((xj - xi) * (y - yi)) / (yj - yi) + xi)) inside = !inside;
+    }
+    return inside;
+  }
+
+  function syncSelBar() {
+    const bar = $('#selBar');
+    if (!bar) return;
+    const on = !!App.selectMode;
+    bar.hidden = !on && App.multi.size === 0;
+    const n = App.multi.size;
+    const c = $('#selCount');
+    if (c) c.textContent = n ? `已选 ${n} 个` : '拖拽框选，或 Ctrl+点击';
+    bar.classList.toggle('is-on', on);
+    bar.querySelectorAll('[data-act^="sel-"]').forEach((b) => {
+      const act = b.dataset.act;
+      if (act === 'sel-clear' || act === 'sel-exit') return;
+      b.disabled = n === 0;
+    });
+  }
+
+  function setSelectMode(mode) {
+    const next = App.selectMode === mode ? null : mode;
+    App.selectMode = next;
+    if (App.map) App.map.setSelectMode(next);
+    $$('.map-tools [data-act^="select-"]').forEach((b) => {
+      b.classList.toggle('is-on', b.dataset.act === 'select-' + next);
+    });
+    syncSelBar();
+    if (next) toast(next === 'rect' ? '拖拽框选神瞳，Esc 退出' : '按住拖动画圈，Esc 退出');
+  }
+
+  function clearMulti() {
+    App.multi.clear();
+    applyMarkerStates();
+    syncSelBar();
+  }
+
+  function toggleMulti(key) {
+    if (App.multi.has(key)) App.multi.delete(key);
+    else App.multi.add(key);
+    applyMarkerStates();
+    syncSelBar();
+  }
+
+  /* 框选/画笔结束：把落在多边形里的可见标记并入选择 */
+  function onMapSelect(poly) {
+    const layer = currentLayer();
+    const hit = [];
+    App.visibleList.forEach((r) => {
+      if (String(r.mapId) !== String(layer.map)) return;
+      if (pointInPoly(r.m.x, r.m.y, poly)) hit.push(mkey(r.mapId, r.m));
+    });
+    hit.forEach((k) => App.multi.add(k));
+    applyMarkerStates();
+    syncSelBar();
+    if (hit.length) toast(`选中 ${hit.length} 个（共 ${App.multi.size} 个）`);
+    else toast('这个范围里没有神瞳');
+  }
+
+  /* 批量改采集状态 */
+  function bulkSetDone(on) {
+    const keys = Array.from(App.multi);
+    if (!keys.length) return;
+    const prev = keys.map((k) => [k, App.done.has(k), App.todo.has(k)]);
+    keys.forEach((k) => {
+      if (on) { App.done.add(k); App.todo.delete(k); }
+      else App.done.delete(k);
+    });
+    afterBulk();
+    undoToast(
+      on ? `已把 ${keys.length} 个标记为已采集` : `已取消 ${keys.length} 个的采集标记`,
+      () => { prev.forEach(([k, d, t]) => setKeyState(k, d, t)); afterBulk(); },
+    );
+  }
+
+  function afterBulk() {
+    saveStore();
+    refreshStats();
+    if (App.state.hideDone) renderMarkers();
+    else applyMarkerStates();
+    if (isDrawerOpen()) renderDrawer();
+    if (Route.on) planRoute({ fit: false, silent: true });
   }
 
   function renderLegend(mapId, src) {
@@ -682,6 +796,7 @@
     const r = regionById(rid);
     App.state.layerId = r.layers[0].id;
     resetFilters();
+    clearMulti();
     buildLayers();
     loadLayer();
     refreshRegionCounts();
@@ -691,6 +806,7 @@
   function selectLayer(lid) {
     App.state.layerId = lid;
     resetFilters();
+    clearMulti();
     buildLayers();
     loadLayer();
     closeDetail();
@@ -1877,6 +1993,7 @@
       detailLayer: $('#tileDetail'),
       markerLayer: $('#mapMarkers'),
       onReady: () => $('#mapLoading').classList.add('is-off'),
+      onSelect: (poly) => onMapSelect(poly),
     });
     App.map.onFrame = routeFrame;
     const hudRoute = $('#hudRoute');
@@ -1894,6 +2011,8 @@
         if (act === 'zoom-in') App.map.zoomBy(0.6);
         else if (act === 'zoom-out') App.map.zoomBy(-0.6);
         else if (act === 'route') toggleRoute();
+        else if (act === 'select-rect') setSelectMode('rect');
+        else if (act === 'select-brush') setSelectMode('brush');
         else App.map.fitBounds(fitBoundsOf(currentLayer()), true);
       });
     });
@@ -1901,6 +2020,19 @@
 
   /* ------------------------------------------------ 交互绑定 */
   function bindUI() {
+    /* 多选操作条 */
+    const selBar = $('#selBar');
+    if (selBar) {
+      selBar.addEventListener('click', (e) => {
+        const b = e.target.closest && e.target.closest('[data-act]');
+        if (!b) return;
+        const act = b.dataset.act;
+        if (act === 'sel-done') bulkSetDone(true);
+        else if (act === 'sel-undo') bulkSetDone(false);
+        else if (act === 'sel-clear') clearMulti();
+        else if (act === 'sel-exit') { clearMulti(); setSelectMode(null); }
+      });
+    }
     $('#btnCollection').addEventListener('click', () => openDrawer('todo'));
     const openLegend = () => {
       $('#legendWrap').setAttribute('aria-hidden', 'false');
@@ -1999,6 +2131,7 @@
         else if (isGuideExtraOpen()) closeGuideExtra();
         else if ($('#legendWrap').getAttribute('aria-hidden') === 'false') $('#legendWrap').setAttribute('aria-hidden', 'true');
         else if (rail.classList.contains('is-open')) { rail.classList.remove('is-open'); railScrim.classList.remove('is-on'); }
+        else if (App.selectMode || App.multi.size) { clearMulti(); setSelectMode(null); }
         else closeDetail();
       }
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;

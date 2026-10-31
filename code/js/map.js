@@ -31,6 +31,17 @@
       this._pinch = null;
       this._readyOnce = false;
       this._moved = 0;
+      /* 框选 / 画笔选择：选区画在屏幕坐标层，位于标记之下（不遮挡标记） */
+      this.selectMode = null;   // 'rect' | 'brush' | null
+      this._sel = null;
+      this.selSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      this.selSvg.setAttribute('class', 'sel-svg');
+      this.selSvg.setAttribute('aria-hidden', 'true');
+      if (opts.markerLayer && opts.markerLayer.parentNode === this.viewport) {
+        this.viewport.insertBefore(this.selSvg, opts.markerLayer);
+      } else {
+        this.viewport.appendChild(this.selSvg);
+      }
       this._bind();
       this._ro = new ResizeObserver(() => this.resize());
       this._ro.observe(this.viewport);
@@ -79,6 +90,104 @@
       }
       this.markerLayer.appendChild(frag);
       this._frame();
+    }
+
+    /* ---------------- 坐标换算 ---------------- */
+    worldToScreen(x, y) {
+      const s = Math.pow(2, this.zoom);
+      return { x: (x - this.cx) * s + this.w / 2, y: (y - this.cy) * s + this.h / 2 };
+    }
+
+    screenToWorld(px, py) {
+      const s = Math.pow(2, this.zoom);
+      return { x: this.cx + (px - this.w / 2) / s, y: this.cy + (py - this.h / 2) / s };
+    }
+
+    /* ---------------- 框选 / 画笔 ---------------- */
+    setSelectMode(mode) {
+      this.selectMode = mode || null;
+      this.viewport.classList.toggle('is-select', !!this.selectMode);
+      if (!this.selectMode) this._clearSelect();
+    }
+
+    _selPoint(e, rect) {
+      return [e.clientX - rect.left, e.clientY - rect.top];
+    }
+
+    _startSelect(e) {
+      const rect = this.viewport.getBoundingClientRect();
+      this._selRect = rect;
+      this._sel = { mode: this.selectMode, pts: [this._selPoint(e, rect)] };
+      this.viewport.classList.add('is-selecting');
+      this._drawSelect();
+    }
+
+    _moveSelect(e) {
+      if (!this._sel || !this._selRect) return;
+      const p = this._selPoint(e, this._selRect);
+      const pts = this._sel.pts;
+      /* 累计位移：让 viewport 上「拖拽后抑制误点击」的逻辑一样生效，
+         这样从标记上拖出去框选时不会顺手把详情打开 */
+      const first = pts[0];
+      if (first) this._moved = Math.abs(p[0] - first[0]) + Math.abs(p[1] - first[1]);
+      if (this._sel.mode === 'rect') {
+        pts[1] = p;
+      } else {
+        const last = pts[pts.length - 1];
+        if (!last || Math.hypot(p[0] - last[0], p[1] - last[1]) > 3) pts.push(p);
+      }
+      this._drawSelect();
+    }
+
+    _endSelect() {
+      if (!this._sel) return;
+      const sel = this._sel;
+      this._sel = null;
+      this._selRect = null;
+      this.viewport.classList.remove('is-selecting');
+      this._clearSelect();
+
+      /* 收成世界坐标多边形；矩形直接用两个对角点扩成 4 点 */
+      let poly;
+      if (sel.mode === 'rect') {
+        const [a, b] = sel.pts.length >= 2 ? [sel.pts[0], sel.pts[1]] : [sel.pts[0], sel.pts[0]];
+        const x0 = Math.min(a[0], b[0]), x1 = Math.max(a[0], b[0]);
+        const y0 = Math.min(a[1], b[1]), y1 = Math.max(a[1], b[1]);
+        if (x1 - x0 < 4 && y1 - y0 < 4) return;   // 只是点了一下，不当选区
+        poly = [[x0, y0], [x1, y0], [x1, y1], [x0, y1]].map(([px, py]) => this.screenToWorld(px, py));
+      } else {
+        if (sel.pts.length < 3) return;
+        poly = sel.pts.map(([px, py]) => this.screenToWorld(px, py));
+      }
+      if (typeof this.onSelect === 'function') this.onSelect(poly, sel.mode);
+    }
+
+    _drawSelect() {
+      const sel = this._sel;
+      if (!sel || !sel.pts.length) { this._clearSelect(); return; }
+      const NS = 'http://www.w3.org/2000/svg';
+      this.selSvg.innerHTML = '';
+      if (sel.mode === 'rect') {
+        const a = sel.pts[0];
+        const b = sel.pts[1] || sel.pts[0];
+        const r = document.createElementNS(NS, 'rect');
+        r.setAttribute('x', Math.min(a[0], b[0]));
+        r.setAttribute('y', Math.min(a[1], b[1]));
+        r.setAttribute('width', Math.abs(b[0] - a[0]));
+        r.setAttribute('height', Math.abs(b[1] - a[1]));
+        r.setAttribute('class', 'sel-shape');
+        this.selSvg.appendChild(r);
+      } else {
+        const d = sel.pts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ') + ' Z';
+        const path = document.createElementNS(NS, 'path');
+        path.setAttribute('d', d);
+        path.setAttribute('class', 'sel-shape');
+        this.selSvg.appendChild(path);
+      }
+    }
+
+    _clearSelect() {
+      if (this.selSvg) this.selSvg.innerHTML = '';
     }
 
     /* ---------------- 视图 ---------------- */
@@ -390,6 +499,15 @@
 
     _down(e) {
       if (e.button !== undefined && e.button > 0) return;
+      /* 选择模式：左键拖拽画选区，不平移地图（滚轮缩放照常）。
+         只放过工具条/浮层这类控件（否则它们的 click 会被吃），标记本身不拦：
+         从标记上拖依然能框选，单击标记也照常能打开详情（靠 _moved 抑制误点击）。 */
+      if (this.selectMode) {
+        const t = e.target;
+        if (t && t.closest && t.closest('.map-tools, .sel-bar, .map-hud, .map-legend')) return;
+        this._startSelect(e);
+        return;
+      }
       this._pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (this._pointers.size === 1) {
         this._drag = { x: e.clientX, y: e.clientY };
@@ -410,6 +528,7 @@
     }
 
     _move(e) {
+      if (this._sel) { this._moveSelect(e); return; }
       if (!this._pointers.has(e.pointerId)) return;
       this._pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
@@ -439,6 +558,14 @@
     }
 
     _up(e) {
+      if (this._sel) {
+        this._endSelect();
+        /* 和普通拖拽一样，等这一轮 click 派发完再清零。
+           不清零的话「拖拽后抑制误点」会一直生效，之后所有点击（工具按钮、
+           Ctrl 点选标记）都会被吃掉 —— 这是最难查的一个坑。 */
+        setTimeout(() => { this._moved = 0; }, 0);
+        return;
+      }
       this._pointers.delete(e.pointerId);
       if (this._pointers.size < 2) this._pinch = null;
       if (this._pointers.size === 0) {

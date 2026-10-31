@@ -1,0 +1,31 @@
+{
+ "date": "2026-11-01",
+ "entries": [
+  {
+   "version": "2026.11.01.1",
+   "at": "2026-11-01T07:48+08:00",
+   "title": "新增 1",
+   "tags": [
+    "界面",
+    "工具"
+   ],
+   "note": "新增多选工具：矩形框选/自由画笔圈选批量选点（Ctrl+左键增减选），选中标记金色高亮，操作条支持批量标记已采/未采",
+   "summary": "新增 1 · 代码 4",
+   "added": [
+    "data/atlas_overrides.json"
+   ],
+   "changed": [],
+   "removed": [],
+   "codeAdded": [],
+   "codeChanged": [
+    "css/style.css",
+    "index.html",
+    "js/app.js",
+    "js/map.js"
+   ],
+   "codeRemoved": [],
+   "bytes": 81,
+   "codeBytes": 226672
+  }
+ ]
+}
