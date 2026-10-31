@@ -308,6 +308,28 @@
    "codeRemoved": [],
    "bytes": 0,
    "codeBytes": 37757
+  },
+  {
+   "version": "2026.10.31.11",
+   "at": "2026-10-31T21:05+08:00",
+   "title": "界面与功能更新",
+   "tags": [
+    "界面",
+    "点位",
+    "攻略"
+   ],
+   "note": "绯红玉髓 80 个点位补齐逐点攻略说明（详情面板显示编号与获取方式，可一键定位图解）",
+   "summary": "代码 1",
+   "added": [],
+   "changed": [],
+   "removed": [],
+   "codeAdded": [],
+   "codeChanged": [
+    "index.html"
+   ],
+   "codeRemoved": [],
+   "bytes": 0,
+   "codeBytes": 27241
   }
  ]
 }
