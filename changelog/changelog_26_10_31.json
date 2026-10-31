@@ -264,6 +264,29 @@
    "codeRemoved": [],
    "bytes": 21112,
    "codeBytes": 194964
+  },
+  {
+   "version": "2026.10.31.9",
+   "at": "2026-10-31T20:45+08:00",
+   "title": "界面与功能更新",
+   "tags": [
+    "界面",
+    "点位",
+    "攻略"
+   ],
+   "note": "绯红玉髓 80 个点位补齐逐点攻略说明；修正上游包最低客户端版本（不应随 ?v= 抬高）",
+   "summary": "代码 2",
+   "added": [],
+   "changed": [],
+   "removed": [],
+   "codeAdded": [],
+   "codeChanged": [
+    "css/style.css",
+    "index.html"
+   ],
+   "codeRemoved": [],
+   "bytes": 0,
+   "codeBytes": 97360
   }
  ]
 }
