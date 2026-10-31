@@ -352,6 +352,28 @@
    "codeRemoved": [],
    "bytes": 0,
    "codeBytes": 65031
+  },
+  {
+   "version": "2026.10.31.13",
+   "at": "2026-10-31T21:38+08:00",
+   "title": "界面与功能更新",
+   "tags": [
+    "修复",
+    "更新机制"
+   ],
+   "note": "代码包过期判定改为纯本地比较（不再依赖网络核对），弱网与离线也能脱离旧包",
+   "summary": "代码 2",
+   "added": [],
+   "changed": [],
+   "removed": [],
+   "codeAdded": [],
+   "codeChanged": [
+    "index.html",
+    "js/app.js"
+   ],
+   "codeRemoved": [],
+   "bytes": 0,
+   "codeBytes": 125860
   }
  ]
 }

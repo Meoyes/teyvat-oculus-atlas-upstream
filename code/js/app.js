@@ -163,7 +163,9 @@
   function currentRegion() { return regionById(App.state.regionId); }
   function currentLayer() {
     const r = currentRegion();
-    return r.layers.find((ly) => ly.id === App.state.layerId) || r.layers[0];
+    const layers = (r && r.layers) || [];
+    /* 地图数据还没到位时（例如启动即触发上游检查）不能抛错，退化成空层 */
+    return layers.find((ly) => ly.id === App.state.layerId) || layers[0] || { id: '', map: '' };
   }
 
   /* ------------------------------------------------ 区域列表 */
