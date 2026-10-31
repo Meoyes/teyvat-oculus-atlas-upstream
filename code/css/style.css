@@ -1256,6 +1256,18 @@ svg{display:block}
 .guide-x-top .guide-area{font-size:11.5px;color:var(--ink);font-family:var(--font-serif);letter-spacing:.06em}
 .guide-x-top .guide-no{font-size:10px;color:var(--ink-3);margin-left:auto;font-family:var(--font-mono)}
 .guide-x-note{font-size:11px;line-height:1.7;color:var(--ink-3);margin-bottom:9px}
+.guide-x-tip{
+  display:flex;gap:8px;align-items:flex-start;
+  font-size:12px;line-height:1.75;color:var(--ink);
+  margin:0 0 10px;padding:8px 10px;border-radius:8px;
+  background:rgba(179,137,76,.09);
+}
+.guide-x-tip .gx-no{
+  flex:0 0 auto;min-width:19px;height:19px;margin-top:1px;
+  display:inline-flex;align-items:center;justify-content:center;padding:0 5px;
+  font-family:var(--font-mono);font-size:11px;line-height:1;
+  color:#fdf8ec;background:linear-gradient(180deg,#b3894c,#8a6531);border-radius:5px;
+}
 .guide-x-btn{
   display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border-radius:8px;
   font-size:11.5px;letter-spacing:.04em;color:#fdf8ec;
@@ -1274,7 +1286,8 @@ svg{display:block}
   border:1px solid var(--line-2);
 }
 .gx-intro a{color:var(--teal-2)}
-.gx{margin-bottom:18px}
+.gx{margin-bottom:18px;border-radius:10px;transition:box-shadow .45s,background .45s}
+.gx.is-focus{background:rgba(179,137,76,.1);box-shadow:0 0 0 2px rgba(179,137,76,.28)}
 .gx-head{display:flex;align-items:baseline;gap:8px;margin:0 2px 8px}
 .gx-head b{font-family:var(--font-serif);font-size:12.5px;letter-spacing:.08em;color:var(--ink)}
 .gx-head span{margin-left:auto;font-family:var(--font-mono);font-size:10px;color:var(--ink-3)}

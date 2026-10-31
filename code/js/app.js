@@ -850,16 +850,22 @@
     if (!G || !G.sections || !G.sections.length) return '';
     const src = G.source || {};
     const total = G.sections.reduce((a, s) => a + (s.count || 0), 0);
+    /* 本点位在当前攻略里的编号说明（由点位坐标与攻略图配准得到） */
+    const hit = G.byMarker ? G.byMarker[String(m.i)] : null;
+    const sec = hit ? G.sections[hit.sec - 1] : null;
+    const head = hit
+      ? `<p class="guide-x-tip"><span class="gx-no">${hit.no}</span>${escapeHtml(hit.text || '')}</p>`
+      : `<p class="guide-x-note">按作者的分区图对照查找：每区一张实景点位图，图下为该区编号说明，点开可放大。</p>`;
     return `<section class="guide-x" aria-label="区域攻略图解">
         <div class="guide-x-top">
           <span class="guide-tag">攻略</span>
-          <span class="guide-area">${G.sections.length} 个区域图解</span>
+          <span class="guide-area">${hit ? `第 ${hit.sec} 区图解 · 编号 ${hit.no}` : `${G.sections.length} 个区域图解`}</span>
           ${total ? `<span class="guide-no">覆盖 ${total} 个点位</span>` : ''}
         </div>
-        <p class="guide-x-note">按作者的分区图对照查找：每区一张实景点位图，图下为该区编号说明，点开可放大。</p>
-        <button type="button" class="guide-x-btn" data-act="guide-extra" data-type="${m.t}">
+        ${head}
+        <button type="button" class="guide-x-btn" data-act="guide-extra" data-type="${m.t}"${hit ? ` data-sec="${hit.sec}"` : ''}>
           <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M2.4 3.6h3.4c.9 0 1.6.7 1.6 1.6v8.2c0-.9-.7-1.6-1.6-1.6H2.4z"/><path d="M13.6 3.6H10.2c-.9 0-1.6.7-1.6 1.6v8.2c0-.9.7-1.6 1.6-1.6h3.4z"/></svg>
-          查看攻略图解与编号说明
+          ${hit ? (sec && sec.img ? '查看图解定位' : `查看第 ${hit.sec} 区说明`) : '查看攻略图解与编号说明'}
         </button>
         <p class="guide-src">攻略来源：${src.platform || '米游社'} <a href="${src.url}" target="_blank" rel="noopener noreferrer">《${src.title}》</a> · @${src.author}${src.date ? ' ' + src.date : ''}</p>
       </section>`;
@@ -870,7 +876,7 @@
     return !!w && w.getAttribute('aria-hidden') === 'false';
   }
 
-  function openGuideExtra(tk) {
+  function openGuideExtra(tk, secNo) {
     const G = guideExtraOf(tk);
     if (!G) return;
     const t = App.types[tk] || { name: '' };
@@ -881,8 +887,8 @@
       <p class="gx-intro">${G.summary || ''}<br>
         米游社 <a href="${src.url}" target="_blank" rel="noopener noreferrer">《${src.title}》</a>
         · @${src.author}${src.date ? ' · ' + src.date : ''}</p>
-      ${G.sections.map((s) => `
-        <section class="gx">
+      ${G.sections.map((s, i) => `
+        <section class="gx" id="gx-sec-${i + 1}"${secNo === i + 1 ? ' data-focus="1"' : ''}>
           <div class="gx-head"><b>${escapeHtml(s.name)}</b>${s.count ? `<span>${s.count} 个</span>` : ''}</div>
           <figure class="gx-img" tabindex="0" role="button" data-guide="${s.img}" data-cap="${escapeHtml(s.name)} · ${t.name}点位图">
             <img src="${s.img}" alt="${escapeHtml(s.name)}点位图" loading="lazy" decoding="async">
@@ -903,6 +909,15 @@
       });
     });
     $('#guideExtraWrap').setAttribute('aria-hidden', 'false');
+    body.scrollTop = 0;
+    if (secNo > 0) {
+      const el = body.querySelector(`#gx-sec-${secNo}`);
+      if (el) {
+        body.scrollTop = Math.max(0, el.offsetTop - 12);
+        el.classList.add('is-focus');
+        setTimeout(() => el.classList.remove('is-focus'), 1600);
+      }
+    }
   }
 
   function closeGuideExtra() {
@@ -1070,7 +1085,7 @@
 
     bindGuide(panel);
     const gxBtn = panel.querySelector('[data-act="guide-extra"]');
-    if (gxBtn) gxBtn.addEventListener('click', () => openGuideExtra(gxBtn.dataset.type));
+    if (gxBtn) gxBtn.addEventListener('click', () => openGuideExtra(gxBtn.dataset.type, Number(gxBtn.dataset.sec) || 0));
 
     panel.querySelector('.detail-close').addEventListener('click', closeDetail);
     const btnPrev = panel.querySelector('[data-act="prev"]');

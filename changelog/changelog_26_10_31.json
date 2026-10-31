@@ -238,6 +238,32 @@
    "codeRemoved": [],
    "bytes": 0,
    "codeBytes": 36388
+  },
+  {
+   "version": "2026.10.31.8",
+   "at": "2026-10-31T20:33+08:00",
+   "title": "修改 1",
+   "tags": [
+    "界面",
+    "点位",
+    "攻略"
+   ],
+   "note": "绯红玉髓 80 个点位补齐逐点攻略说明：详情面板直接显示该点的编号与获取方式，并可一键定位到对应分区图解",
+   "summary": "修改 1 · 代码 3",
+   "added": [],
+   "changed": [
+    "data/guide_extra.json"
+   ],
+   "removed": [],
+   "codeAdded": [],
+   "codeChanged": [
+    "css/style.css",
+    "index.html",
+    "js/app.js"
+   ],
+   "codeRemoved": [],
+   "bytes": 21112,
+   "codeBytes": 194964
   }
  ]
 }
