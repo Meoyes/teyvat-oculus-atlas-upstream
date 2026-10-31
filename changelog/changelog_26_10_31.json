@@ -287,6 +287,27 @@
    "codeRemoved": [],
    "bytes": 0,
    "codeBytes": 97360
+  },
+  {
+   "version": "2026.10.31.10",
+   "at": "2026-10-31T21:04+08:00",
+   "title": "界面与功能更新",
+   "tags": [
+    "修复",
+    "更新机制"
+   ],
+   "note": "修复代码包状态自愈：SW 重新激活清掉缓存后，客户端不再误以为已安装（首访也能拿到最新界面）",
+   "summary": "代码 1",
+   "added": [],
+   "changed": [],
+   "removed": [],
+   "codeAdded": [],
+   "codeChanged": [
+    "js/upstream.js"
+   ],
+   "codeRemoved": [],
+   "bytes": 0,
+   "codeBytes": 37757
   }
  ]
 }

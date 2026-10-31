@@ -406,13 +406,43 @@
       return publicInfo(infoU);
     }
     if (s.needsUpgrade) { delete s.needsUpgrade; Local.write(s); }
+    // 代码包会被 SW 重新激活时清掉（部署即权威）。本地状态可能还记着「已装」，
+    // 这里对一下激活指针；缺了就当作没装，下面会重新整包下发。保留 blocked，
+    // 免得把一个启动失败的版本反复重试。
+    let codeLost = false;
+    try {
+      const cst = codeState();
+      if (cst && cst.version) {
+        const act = await readActive();
+        if (!act || act.version !== cst.version) {
+          saveCodeState(Object.assign({}, cst, { version: null, files: null, pendingBoot: null }));
+          codeLost = true;
+        }
+      }
+    } catch (e) { /* 忽略 */ }
+
+    const cdPre = codeDiff(manifest.code, codeState());
+    const needCode = cdPre.total > 0 || cdPre.removed.length > 0;
+    const believesInstalled = !!(codeState() || {}).version;
     // 旧清单（CDN 滞后 / 回滚）不应用，直接当作「已是最新」
-    if (s.version && cmpVersion(manifest.version, s.version) <= 0) {
+    if (s.version && cmpVersion(manifest.version, s.version) < 0) {
       s.checkedAt = now();
       s.lastError = null;
       s.changelog = manifest.changelog || s.changelog || [];
       Local.write(s);
       const info0 = { version: s.version, installed: s.version, updated: false, stale: manifest.version !== s.version };
+      lastInfo = info0;
+      renderStatus();
+      return publicInfo(info0);
+    }
+    // 数据已经是最新、代码包也没丢（或本来就没装过）：无事可做
+    if (s.version && cmpVersion(manifest.version, s.version) === 0
+        && !(needCode && (believesInstalled || codeLost))) {
+      s.checkedAt = now();
+      s.lastError = null;
+      s.changelog = manifest.changelog || s.changelog || [];
+      Local.write(s);
+      const info0 = { version: s.version, installed: s.version, updated: false, stale: false };
       lastInfo = info0;
       renderStatus();
       return publicInfo(info0);
