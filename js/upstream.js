@@ -16,7 +16,8 @@
       'https://raw.githubusercontent.com/{o}/{r}/{b}/',
       'https://cdn.jsdelivr.net/gh/{o}/{r}@{b}/',
     ],
-    interval: 24 * 60 * 60 * 1000,   // 1 天
+    interval: 24 * 60 * 60 * 1000,          // 资源清单：1 天
+    announceInterval: 60 * 60 * 1000,       // 公告：1 小时
     autoApply: true,
     timeout: 15000,
   };
@@ -33,6 +34,16 @@
       try { localStorage.setItem(KEY, JSON.stringify(v)); } catch (e) { /* 隐私模式忽略 */ }
     },
   };
+
+  // 本站脚本版本（取自自身 script 的 ?v=），用于和 manifest.minApp 比对
+  const APP_VER = (function () {
+    try {
+      const el = document.currentScript
+        || Array.from(document.scripts).find((x) => /upstream\.js/.test(x.src));
+      const v = el && new URL(el.src, location.href).searchParams.get('v');
+      return v || '0';
+    } catch (e) { return '0'; }
+  })();
 
   let state = Local.read();
   let baseline = null;          // 站点内置基线 manifest
@@ -53,6 +64,25 @@
   }
 
   function abs(path) { return new URL(path, location.href).href; }
+
+  // 脚本版本号形如 20261031-2：日期段 + 当日序号，按数字比较
+  function cmpAppVersion(a, b) {
+    const pa = String(a || '0').split('-');
+    const pb = String(b || '0').split('-');
+    const na = parseInt(pa[0], 10) || 0, nb = parseInt(pb[0], 10) || 0;
+    if (na !== nb) return na < nb ? -1 : 1;
+    const sa = parseInt(pa[1], 10) || 0, sb = parseInt(pb[1], 10) || 0;
+    return sa === sb ? 0 : (sa < sb ? -1 : 1);
+  }
+
+  // 资源分组：按地图归类的文件可以延迟到「打开该区域」时再下载
+  function mapOf(path) {
+    let m = /^data\/markers_([^/]+)\.json$/.exec(path);
+    if (m) return 'map:' + m[1];
+    m = /^tiles\/([^/]+)\//.exec(path);
+    if (m) return 'map:' + m[1];
+    return null;
+  }
 
   // 版本号 YYYY.MM.DD.N 按段比较，用于防止 CDN 缓存旧清单导致「降级」
   function cmpVersion(a, b) {
@@ -159,6 +189,20 @@
     }
 
     s.manifestVersion = manifest.version;
+    // 最低客户端版本：数据格式可能依赖新脚本，旧客户端先去刷新页面
+    if (manifest.minApp && cmpAppVersion(APP_VER, manifest.minApp) < 0) {
+      s.checkedAt = now();
+      s.lastError = null;
+      s.needsUpgrade = manifest.minApp;
+      s.changelog = manifest.changelog || s.changelog || [];
+      Local.write(s);
+      renderStatus();
+      const infoU = { version: s.version, installed: s.version, updated: false, needsUpgrade: manifest.minApp, appVer: APP_VER };
+      lastInfo = infoU;
+      window.dispatchEvent(new CustomEvent('gel:upstream-need-upgrade', { detail: infoU }));
+      return publicInfo(infoU);
+    }
+    if (s.needsUpgrade) { delete s.needsUpgrade; Local.write(s); }
     // 旧清单（CDN 滞后 / 回滚）不应用，直接当作「已是最新」
     if (s.version && cmpVersion(manifest.version, s.version) <= 0) {
       s.checkedAt = now();
@@ -203,6 +247,8 @@
       changed: info.changed ? info.changed.length : 0,
       removed: info.removed ? info.removed.length : 0,
       bytes: info.bytes || 0, skipped: !!info.skipped, error: info.error || null,
+      needsUpgrade: info.needsUpgrade || null, appVer: APP_VER,
+      deferred: info.deferred || 0,
       changelog: info.changelog || [],
       sample: (info.added || []).slice(0, 5).concat((info.changed || []).slice(0, 5)),
     };
@@ -221,7 +267,15 @@
     const s = Local.read();
     const d = diff(manifest, s.files);
     const b = base || baseUrl();
-    const list = d.added.concat(d.changed);
+    const all = d.added.concat(d.changed);
+
+    // 只下「核心 + 当前地图」；其它地图的点位与瓦片留到打开该区域时再取
+    const curMap = opts.scope === 'all' ? null : String(
+      (window.__GEL && typeof window.__GEL.currentMapId === 'function' && window.__GEL.currentMapId()) || '');
+    const list = curMap === null ? all
+      : all.filter((p) => { const m = mapOf(p); return !m || m === 'map:' + curMap; });
+    const parked = curMap === null ? []
+      : all.filter((p) => { const m = mapOf(p); return !!m && m !== 'map:' + curMap; });
 
     showCard('正在获取新内容', 0, list.length, '');
     const cache = await caches.open(CACHE);
@@ -231,20 +285,9 @@
 
     for (const path of list) {
       try {
-        const url = b + path + '?t=' + Math.floor(now() / 60000);
-        const ctrl = new AbortController();
-        const timer = setTimeout(() => ctrl.abort(), CFG.timeout);
-        let res;
-        try {
-          res = await fetch(url, { cache: 'no-store', signal: ctrl.signal });
-        } finally { clearTimeout(timer); }
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        const buf = await res.arrayBuffer();
-        bytes += buf.byteLength;
-        // 以站内绝对地址为键，Service Worker / 页面请求可直接命中
-        await cache.put(abs(path), new Response(buf, {
-          headers: { 'Content-Type': res.headers.get('Content-Type') || guessType(path) },
-        }));
+        const put = await download(b, path);
+        bytes += put.size;
+        await cache.put(abs(path), put.res);
       } catch (e) {
         failed.push(path);
       }
@@ -270,11 +313,17 @@
     s.changelog = manifest.changelog || [];
     s.checkedAt = now();
     s.updatedAt = now();
+    // 记下还没下载的文件（打开对应地图时补），已下载的清掉
+    s.deferred = Object.assign({}, s.deferred || {});
+    parked.forEach((p) => { if (manifest.files[p]) s.deferred[p] = manifest.files[p][1]; });
+    list.forEach((p) => { if (s.deferred[p]) delete s.deferred[p]; });
+    d.removed.forEach((p) => { if (s.deferred[p]) delete s.deferred[p]; });
     Local.write(s);
     pending = null;
     lastInfo = null;
     showCard('已更新到 ' + manifest.version, list.length, list.length,
-      `新增 ${d.added.length} · 修改 ${d.changed.length} · 删除 ${d.removed.length}`);
+      `新增 ${d.added.length} · 修改 ${d.changed.length} · 删除 ${d.removed.length}`
+      + (parked.length ? ` · ${parked.length} 个待打开对应区域` : ''));
     renderStatus();
     window.dispatchEvent(new CustomEvent('gel:upstream-applied', {
       detail: { version: manifest.version, added: d.added.length, changed: d.changed.length, removed: d.removed.length, bytes },
@@ -283,7 +332,54 @@
     if (opts.reload !== false && (appChanged || dataChanged)) {
       setTimeout(() => location.reload(), 900);
     }
-    return { version: manifest.version, added: d.added.length, changed: d.changed.length, removed: d.removed.length, bytes, appChanged, dataChanged };
+    return { version: manifest.version, added: d.added.length, changed: d.changed.length, removed: d.removed.length,
+      bytes, appChanged, dataChanged, parked: parked.length };
+  }
+
+  // 单个文件下载（带超时），返回可直接写入缓存的 Response
+  async function download(b, path) {
+    const url = b + path + '?t=' + Math.floor(now() / 60000);
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), CFG.timeout);
+    let res;
+    try {
+      res = await fetch(url, { cache: 'no-store', signal: ctrl.signal });
+    } finally { clearTimeout(timer); }
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const buf = await res.arrayBuffer();
+    return {
+      size: buf.byteLength,
+      res: new Response(buf, { headers: { 'Content-Type': res.headers.get('Content-Type') || guessType(path) } }),
+    };
+  }
+
+  // 打开某个地图时，把之前延迟的点位 / 瓦片补齐
+  async function ensureMap(mapId) {
+    const s = Local.read();
+    const def = Object.assign({}, s.deferred || {});
+    const paths = Object.keys(def).filter((p) => mapOf(p) === 'map:' + mapId);
+    if (!paths.length) return { nothing: true };
+    if (running) return { busy: true };
+    running = true;
+    const b = base || baseUrl();
+    const cache = await caches.open(CACHE);
+    let ok = 0, failed = 0;
+    for (const p of paths) {
+      try {
+        const put = await download(b, p);
+        await cache.put(abs(p), put.res);
+        delete def[p];
+        ok++;
+      } catch (e) { failed++; }
+    }
+    s.deferred = def;
+    Local.write(s);
+    running = false;
+    if (ok && window.__GEL && typeof window.__GEL.reloadMarkers === 'function') {
+      try { await window.__GEL.reloadMarkers(mapId); } catch (e) { /* ignore */ }
+    }
+    if (ok) showCard('已补全当前区域资源', ok, ok, `${ok} 个文件`);
+    return { downloaded: ok, failed, total: paths.length };
   }
 
   function guessType(path) {
@@ -298,19 +394,37 @@
   }
 
   /* ------------------------------------------------ 公告（消息更新） */
+  // 公告每小时独立刷新，不等 manifest 版本变化——消息要及时
+  async function refreshAnnounce(force) {
+    const s = Local.read();
+    if (!force && s.announceCheckedAt && now() - s.announceCheckedAt < CFG.announceInterval) {
+      return s.announce || null;
+    }
+    let doc = null;
+    try {
+      doc = await fetchJSON((base || baseUrl()) + 'data/announce.json?t=' + Math.floor(now() / 60000));
+    } catch (e) { doc = null; }
+    if (doc && Array.isArray(doc.items)) {
+      s.announce = doc;
+      s.announceCheckedAt = now();
+      Local.write(s);
+      refreshAnnounceBadge(doc);
+      return doc;
+    }
+    s.announceCheckedAt = now();   // 失败也记时间，避免每屏都重试
+    Local.write(s);
+    return s.announce || null;
+  }
+
   async function loadAnnounce() {
-    const key = abs('data/announce.json');
+    const s = Local.read();
+    if (s.announce && Array.isArray(s.announce.items)) return s.announce;
     try {
       const c = await caches.open(CACHE);
-      const hit = await c.match(key, { ignoreSearch: true });
+      const hit = await c.match(abs('data/announce.json'), { ignoreSearch: true });
       if (hit) return await hit.json();
     } catch (e) { /* ignore */ }
     try { return await (await fetch('data/announce.json', { cache: 'no-cache' })).json(); } catch (e) { /* ignore */ }
-    try {
-      const b = base || baseUrl();
-      const res = await fetch(b + 'data/announce.json?t=' + Math.floor(now() / 60000), { cache: 'no-store' });
-      if (res.ok) return await res.json();
-    } catch (e) { /* ignore */ }
     return null;
   }
 
@@ -320,18 +434,23 @@
     return doc.items.filter((it) => it && it.id && !seen.includes(it.id));
   }
 
-  async function refreshAnnounceBadge() {
+  async function refreshAnnounceBadge(doc) {
     const btn = document.getElementById('btnChangelog');
     if (!btn) return;
-    const doc = await loadAnnounce();
-    const un = unseenAnnounce(doc);
+    const d = doc || await loadAnnounce();
+    const un = unseenAnnounce(d);
     btn.classList.toggle('has-dot', un.length > 0);
   }
 
   /* ------------------------------------------------ 自动检查 */
   async function auto() {
+    refreshAnnounce().catch(() => null);
     let r;
     try { r = await check(); } catch (e) { return; }
+    if (r && r.needsUpgrade) {
+      toastLocal('有新内容，刷新页面后自动获取');
+      return;
+    }
     if (!r || r.error || r.skipped) return;
     if (r.updated) {
       if (CFG.autoApply) {
@@ -355,7 +474,14 @@
     const s = Local.read();
     if (!s.version) { el.textContent = '尚未检查'; return; }
     const when = s.checkedAt ? timeAgo(s.checkedAt) : '未检查';
-    el.textContent = `资源 ${s.version} · ${when}检查`;
+    if (s.needsUpgrade) {
+      el.textContent = `需刷新页面升级（要求 ${s.needsUpgrade}）`;
+      el.classList.add('is-warn');
+      return;
+    }
+    el.classList.remove('is-warn');
+    const defN = Object.keys(s.deferred || {}).length;
+    el.textContent = `资源 ${s.version} · ${when}检查` + (defN ? ` · ${defN} 项按需加载` : '');
   }
 
   function timeAgo(ts) {
@@ -462,20 +588,31 @@
     const btn = document.getElementById('btnUpdate');
     if (btn) {
       btn.addEventListener('click', async () => {
+        // 需要刷新升级时，这个按钮直接变成「刷新」
+        if (Local.read().needsUpgrade) { location.reload(); return; }
         btn.disabled = true;
         btn.textContent = '检查中…';
         const r = await check({ force: true });
         btn.disabled = false;
         btn.textContent = '检查更新';
         if (r.error) { toastLocal('检查失败：网络或仓库不可达'); return; }
+        if (r.needsUpgrade) { toastLocal('有新内容，但需要先刷新页面升级'); return; }
         if (!r.updated) { toastLocal(`已是最新版本 ${r.version || '资源'}`); return; }
         const res = await apply();
-        if (res && res.version) toastLocal(`已更新到 ${res.version}`);
+        if (res && res.version) {
+          toastLocal(`已更新到 ${res.version}` + (res.parked ? ` · ${res.parked} 项按需加载` : ''));
+        }
       });
     }
     const clBtn = document.getElementById('btnChangelog');
     if (clBtn) clBtn.addEventListener('click', openChangelog);
     refreshAnnounceBadge();
+    refreshAnnounce().catch(() => null);
+    // 页面常驻时也按小时刷新公告
+    setInterval(() => { refreshAnnounce(true).catch(() => null); }, CFG.announceInterval);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') refreshAnnounce().catch(() => null);
+    });
     const closeEls = document.querySelectorAll('[data-close="changelog"]');
     closeEls.forEach((el) => el.addEventListener('click', closeChangelog));
     const cardClose = document.querySelector('#updCard .upd-close');
@@ -483,8 +620,10 @@
   }
 
   window.__GEL_UP = {
-    config: CFG, check, apply, openChangelog, closeChangelog, isChangelogOpen,
-    diff, cmpVersion, loadAnnounce, state: () => Local.read(), pending: () => pending,
+    config: CFG, appVer: APP_VER, check, apply, ensureMap, openChangelog, closeChangelog,
+    isChangelogOpen, diff, cmpVersion, cmpAppVersion, mapOf, loadAnnounce, refreshAnnounce,
+    deferred: () => Object.keys(Local.read().deferred || {}),
+    state: () => Local.read(), pending: () => pending,
     reset() { localStorage.removeItem(KEY); state = {}; pending = null; },
   };
 

@@ -121,6 +121,31 @@
     initCloud();
   }
 
+  // 上游补全某个地图的数据后，就地重建该地图的标记与索引
+  async function reloadMarkers(mapId) {
+    const id = String(mapId);
+    const d = await fetchData(`data/markers_${id}.json`).then((r) => r.json()).catch(() => null);
+    if (!d || !Array.isArray(d.markers)) return false;
+    App.markers[id] = d.markers;
+    const prefix = id + ':';
+    Array.from(App.idx.keys()).forEach((k) => { if (k.indexOf(prefix) === 0) App.idx.delete(k); });
+    App.flat = App.flat.filter((r) => String(r.mapId) !== id);
+    d.markers.forEach((m) => {
+      m.__key = prefix + m.i;
+      const rec = { mapId: Number(id), m };
+      App.idx.set(m.__key, rec);
+      App.flat.push({ key: m.__key, mapId: Number(id), m });
+    });
+    if (String(currentLayer().map) === id) {
+      renderMarkers();
+      refreshStats();
+      refreshRegionCounts();
+    }
+    return true;
+  }
+
+  function currentMapId() { return String(currentLayer().map); }
+
   function regionOf(mapId, m) {
     if (mapId === 2) return App.areaRegion[m.a] || null;
     return App.mapRegion[mapId] || null;
@@ -687,6 +712,10 @@
     if (Route.on) planRoute({ fit: false, silent: true });
     document.getElementById('mapLoading').classList.add('is-off');
     setTimeout(() => App.map.resize(), 30);
+    // 上游把非当前地图的资源延迟了：切到这个地图时再补齐
+    if (window.__GEL_UP && typeof window.__GEL_UP.ensureMap === 'function') {
+      setTimeout(() => { window.__GEL_UP.ensureMap(String(layer.map)).catch(() => null); }, 700);
+    }
   }
 
   function fitBoundsOf(layer) {
@@ -2339,6 +2368,9 @@
       toast('已退出登录，进度仍保存在本机');
     });
   }
+
+  App.currentMapId = currentMapId;
+  App.reloadMarkers = reloadMarkers;
 
   /* ------------------------------------------------ 启动 */
   bindUI();

@@ -1390,3 +1390,7 @@ svg{display:block}
 [data-theme="dark"] .cl-ann{background:rgba(203,169,108,.12);border-color:rgba(203,169,108,.26)}
 [data-theme="dark"] .cl-ann-h{color:#e0c793}
 [data-theme="dark"] #btnChangelog.has-dot::after{box-shadow:0 0 0 2px rgba(14,24,27,.9)}
+
+/* 需要刷新升级时的状态提示 */
+.upd-status.is-warn{color:#a9564a;font-weight:500}
+[data-theme="dark"] .upd-status.is-warn{color:#e09a8e}
