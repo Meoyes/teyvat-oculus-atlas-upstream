@@ -392,20 +392,21 @@
     }
 
     s.manifestVersion = manifest.version;
-    // 最低客户端版本：数据格式可能依赖新脚本，旧客户端先去刷新页面
-    if (manifest.minApp && cmpAppVersion(APP_VER, manifest.minApp) < 0) {
-      s.checkedAt = now();
-      s.lastError = null;
+    /* 最低客户端版本：只记录，不阻断安装。
+       这里以前是直接 return 的，形成了一条死锁：代码包里的旧页面加载旧脚本站，
+       旧脚本发现版本不够又不肯装新包，用户怎么刷新都出不来。
+       整包是原子下发的（index.html 与 js/css 同版本），装新包不会出现混版；
+       万一新包起不来，看门狗会回退并标记 blocked，也不会反复失败。 */
+    const lowApp = !!(manifest.minApp && cmpAppVersion(APP_VER, manifest.minApp) < 0);
+    if (lowApp) {
       s.needsUpgrade = manifest.minApp;
-      s.changelog = manifest.changelog || s.changelog || [];
-      Local.write(s);
-      renderStatus();
-      const infoU = { version: s.version, installed: s.version, updated: false, needsUpgrade: manifest.minApp, appVer: APP_VER };
-      lastInfo = infoU;
-      window.dispatchEvent(new CustomEvent('gel:upstream-need-upgrade', { detail: infoU }));
-      return publicInfo(infoU);
+      window.dispatchEvent(new CustomEvent('gel:upstream-need-upgrade', {
+        detail: { version: manifest.version, needsUpgrade: manifest.minApp, appVer: APP_VER },
+      }));
+    } else if (s.needsUpgrade) {
+      delete s.needsUpgrade;
     }
-    if (s.needsUpgrade) { delete s.needsUpgrade; Local.write(s); }
+    Local.write(s);
     // 代码包会被 SW 重新激活时清掉（部署即权威）。本地状态可能还记着「已装」，
     // 这里对一下激活指针；缺了就当作没装，下面会重新整包下发。保留 blocked，
     // 免得把一个启动失败的版本反复重试。
@@ -430,7 +431,7 @@
       s.lastError = null;
       s.changelog = manifest.changelog || s.changelog || [];
       Local.write(s);
-      const info0 = { version: s.version, installed: s.version, updated: false, stale: manifest.version !== s.version };
+      const info0 = { version: s.version, installed: s.version, updated: false, stale: manifest.version !== s.version, needsUpgrade: s.needsUpgrade || null };
       lastInfo = info0;
       renderStatus();
       return publicInfo(info0);
@@ -442,7 +443,7 @@
       s.lastError = null;
       s.changelog = manifest.changelog || s.changelog || [];
       Local.write(s);
-      const info0 = { version: s.version, installed: s.version, updated: false, stale: false };
+      const info0 = { version: s.version, installed: s.version, updated: false, stale: false, needsUpgrade: s.needsUpgrade || null };
       lastInfo = info0;
       renderStatus();
       return publicInfo(info0);
@@ -456,6 +457,7 @@
       bytes: d.bytes, total: d.total,
       code: cd,
       updated: d.total > 0 || d.removed.length > 0 || cd.total > 0 || cd.removed.length > 0,
+      needsUpgrade: s.needsUpgrade || null,
       changelog: manifest.changelog || [],
       manifest,
     };
@@ -716,10 +718,6 @@
     refreshAnnounce().catch(() => null);
     let r;
     try { r = await check(); } catch (e) { return; }
-    if (r && r.needsUpgrade) {
-      toastLocal('有新内容，刷新页面后自动获取');
-      return;
-    }
     if (!r || r.error || r.skipped) return;
     if (r.updated) {
       if (CFG.autoApply) {
@@ -744,7 +742,8 @@
     if (!s.version) { el.textContent = '尚未检查'; return; }
     const when = s.checkedAt ? timeAgo(s.checkedAt) : '未检查';
     if (s.needsUpgrade) {
-      el.textContent = `需刷新页面升级（要求 ${s.needsUpgrade}）`;
+      /* 只作提示，不阻断更新（阻断过会死锁，见 check() 里的注释） */
+      el.textContent = `已是最新 · 刷新一次页面可启用新界面（${s.needsUpgrade}）`;
       el.classList.add('is-warn');
       return;
     }
@@ -883,15 +882,12 @@
     const btn = document.getElementById('btnUpdate');
     if (btn) {
       btn.addEventListener('click', async () => {
-        // 需要刷新升级时，这个按钮直接变成「刷新」
-        if (Local.read().needsUpgrade) { location.reload(); return; }
         btn.disabled = true;
         btn.textContent = '检查中…';
         const r = await check({ force: true });
         btn.disabled = false;
         btn.textContent = '检查更新';
         if (r.error) { toastLocal('检查失败：网络或仓库不可达'); return; }
-        if (r.needsUpgrade) { toastLocal('有新内容，但需要先刷新页面升级'); return; }
         if (!r.updated) { toastLocal(`已是最新版本 ${r.version || '资源'}`); return; }
         const res = await apply();
         if (res && res.version) {

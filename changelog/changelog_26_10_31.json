@@ -330,6 +330,28 @@
    "codeRemoved": [],
    "bytes": 0,
    "codeBytes": 27241
+  },
+  {
+   "version": "2026.10.31.12",
+   "at": "2026-10-31T21:25+08:00",
+   "title": "界面与功能更新",
+   "tags": [
+    "修复",
+    "更新机制"
+   ],
+   "note": "彻底修复版本门禁死锁：代码包不再盖住新部署，最低版本要求不再阻断更新",
+   "summary": "代码 2",
+   "added": [],
+   "changed": [],
+   "removed": [],
+   "codeAdded": [],
+   "codeChanged": [
+    "index.html",
+    "js/upstream.js"
+   ],
+   "codeRemoved": [],
+   "bytes": 0,
+   "codeBytes": 65031
   }
  ]
 }
