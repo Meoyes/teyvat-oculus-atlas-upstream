@@ -142,6 +142,82 @@
    ],
    "removed": [],
    "bytes": 20939353
+  },
+  {
+   "version": "2026.10.31.4",
+   "at": "2026-10-31T19:03+08:00",
+   "title": "界面与功能更新",
+   "tags": [
+    "架构",
+    "性能"
+   ],
+   "note": "界面代码改走上游增量通道（整包快照 + 自动回退）",
+   "summary": "代码 11",
+   "added": [],
+   "changed": [],
+   "removed": [],
+   "codeAdded": [
+    "css/style.css",
+    "index.html",
+    "js/app.js",
+    "js/cloud-config.js",
+    "js/cloud-own.js",
+    "js/cloud-turso.js",
+    "js/cloud.js",
+    "js/lib.js",
+    "js/map.js",
+    "js/upstream.js",
+    "manifest.webmanifest"
+   ],
+   "codeChanged": [],
+   "codeRemoved": [],
+   "bytes": 0,
+   "codeBytes": 274443
+  },
+  {
+   "version": "2026.10.31.5",
+   "at": "2026-10-31T19:03+08:00",
+   "title": "界面与功能更新",
+   "tags": [
+    "架构",
+    "性能"
+   ],
+   "note": "界面代码改走上游增量通道（整包快照 + 自动回退）",
+   "summary": "代码 2",
+   "added": [],
+   "changed": [],
+   "removed": [],
+   "codeAdded": [],
+   "codeChanged": [],
+   "codeRemoved": [
+    "js/cloud-turso.js",
+    "js/cloud.js"
+   ],
+   "bytes": 0,
+   "codeBytes": 0
+  },
+  {
+   "version": "2026.10.31.6",
+   "at": "2026-10-31T19:08+08:00",
+   "title": "界面与功能更新",
+   "tags": [
+    "架构",
+    "更新"
+   ],
+   "note": "界面代码走上游增量：整包快照 + 启动看门狗回退（提交上游即生效，无需重新部署）",
+   "summary": "代码 3",
+   "added": [],
+   "changed": [],
+   "removed": [],
+   "codeAdded": [],
+   "codeChanged": [
+    "index.html",
+    "js/app.js",
+    "js/upstream.js"
+   ],
+   "codeRemoved": [],
+   "bytes": 0,
+   "codeBytes": 160942
   }
  ]
 }

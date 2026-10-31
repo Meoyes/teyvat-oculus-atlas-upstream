@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-page-node-id="LxpZWoTiKNrD9yNTDDbljy">
+<head data-page-node-id="rnIUeGWCZjFaGYcgS8vCjm">
+<meta charset="utf-8" data-page-node-id="ILaXbLdtAqDxFCqxYtJHnB">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" data-page-node-id="ocYqEAGCPGnSshxhV3M8FG">
+<meta name="theme-color" content="#164a51" data-page-node-id="78LY9F0qndCR6o4XDfEibW">
+<script>
+/* 首屏前确定主题，避免闪白 */
+try {
+  var raw = localStorage.getItem('gel.theme');
+  var t = raw ? JSON.parse(raw) : (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  document.documentElement.setAttribute('data-theme', t === 'dark' ? 'dark' : 'light');
+} catch (e) { document.documentElement.setAttribute('data-theme', 'light'); }
+</script>
+<script>
+/* 代码包看门狗 ------------------------------------------------------------
+   上游下发的界面代码如果启动不起来，自动回退到上一版，避免一次坏提交把所有人锁死。
+   只在「这个版本还没成功启动过」（pendingBoot === version）时才上岗——
+   已经被证明能跑的版本永远不会触发回退。
+   判定：页面 load 后 12 秒仍未注册 window.__GEL（脚本没跑起来），或 boot 明确报错。
+   慢网络不算失败：只要 __GEL 存在就说明脚本已就位，只是数据还没到。 */
+(function () {
+  var KEY = 'gel.code.v1';
+  var META = 'gel-code-meta';
+  var ACTIVE = '/__code__/active';
+  var st;
+  try { st = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (e) { return; }
+  if (!st || !st.version || st.pendingBoot !== st.version) return;
+  var BROKEN = st.version;
+  function activeUrl() { return new URL(ACTIVE, location.origin).href; }
+  function patch(fn) {
+    var s;
+    try { s = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (e) { s = {}; }
+    fn(s);
+    try { localStorage.setItem(KEY, JSON.stringify(s)); } catch (e) { /* 忽略 */ }
+  }
+  function rollback() {
+    if (!window.caches) return;
+    caches.open(META).then(function (c) {
+      return c.match(activeUrl()).then(function (r) { return r ? r.json() : null; });
+    }).then(function (meta) {
+      var prev = meta && meta.prev;
+      if (!prev) return false;
+      return caches.open(META).then(function (c) {
+        return c.put(activeUrl(), new Response(JSON.stringify({
+          version: prev, prev: null, at: Date.now(),
+        }), { headers: { 'Content-Type': 'application/json' } }));
+      }).then(function () { return true; });
+    }).then(function (ok) {
+      /* 回退成功则切回上一版；无论成败都把坏版本标记为 blocked，不再反复重试 */
+      patch(function (s) {
+        s.blocked = BROKEN;
+        delete s.pendingBoot;
+      });
+      if (ok) location.reload();
+    }).catch(function () {});
+  }
+  function check() {
+    var app = window.__GEL;
+    if (app && app.booted) { patch(function (s) { delete s.pendingBoot; }); return; }
+    if (app && !app.bootError) return;   // 脚本在跑、只是数据慢，不算失败
+    rollback();
+  }
+  if (document.readyState === 'complete') setTimeout(check, 12000);
+  else window.addEventListener('load', function () { setTimeout(check, 12000); });
+})();
+</script>
+<title>神瞳图鉴 · 提瓦特神瞳位置查询</title>
+<meta name="description" content="提瓦特全区域神瞳位置查询：八大国度、分层地图、元素配色标记、采集进度记录。" data-page-node-id="DxGR1tUtHGZn2EZLuEse4K">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml" data-page-node-id="bc37ZDxKwWzMxES8GKJ6GZ">
+<link rel="preconnect" href="https://fonts.googleapis.com" data-page-node-id="YZbzRiTSuwovsDLaSJvSFq">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin data-page-node-id="dWjm0RFrxnMOGyIhxfGpjG">
+<!-- 瓦片与点位截图都在 hoyoverse 域，提前建连省一次 TLS 往返 -->
+<link rel="preconnect" href="https://act-webstatic.hoyoverse.com" crossorigin>
+<link rel="preconnect" href="https://act.hoyoverse.com" crossorigin>
+<link rel="stylesheet" media="print" onload="this.media='all'"
+      href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@500;600;700&family=Noto+Sans+SC:wght@400;500;600&display=swap" data-page-node-id="06SAskCDp0jLwQSy4Fu6sa">
+<link rel="stylesheet" href="css/style.css?v=20261031-10" data-page-node-id="QF6wrlSleLz5L9tHvrxGnO">
+</head>
+<body data-page-node-id="wkhfDViUHYSgCoYBh7AGGC">
+<div id="app" data-page-node-id="gBPaI7hqV7frQwkCpS5sCZ">
+
+  <!-- ============ 顶栏 ============ -->
+  <header class="topbar" data-page-node-id="tABHiWhQMex6ilvJIw5wOq">
+    <div class="brand" data-page-node-id="EH6IHvk2j9JvfbD8S351mi">
+      <svg class="brand-mark" viewBox="0 0 40 40" aria-hidden="true" data-page-node-id="g2dPgLoGfw3FxmcZoqfXpL">
+        <defs data-page-node-id="ptxqFvrdfM1TIRm1nySwKf">
+          <linearGradient id="bmGrad" x1="0" y1="0" x2="1" y2="1" data-page-node-id="dtgsTkKVHhzg0GfREi6KkY">
+            <stop offset="0" stop-color="#e9cf96" data-page-node-id="lF5f7YfPnVFVR0MAWrETA5"/><stop offset=".55" stop-color="#c9a15c" data-page-node-id="L5XP578oesluSilDXAinvI"/><stop offset="1" stop-color="#8f6b32" data-page-node-id="Wgil75RCbf7RfdCtQHQzp1"/>
+          </linearGradient>
+        </defs>
+        <path d="M20 2.5 34 20 20 37.5 6 20Z" fill="none" stroke="url(#bmGrad)" stroke-width="1.6" data-page-node-id="GkGYN8SSCkQcBRrSKlSRQC"/>
+        <path d="M20 8.5 28.5 20 20 31.5 11.5 20Z" fill="rgba(201,161,92,.14)" data-page-node-id="W5CaxYU8JUWBg0eopRUPwK"/>
+        <ellipse cx="20" cy="20" rx="7.2" ry="4.6" fill="none" stroke="url(#bmGrad)" stroke-width="1.4" data-page-node-id="c0q95uGa8tvcwOLhBfErvC"/>
+        <circle cx="20" cy="20" r="2.4" fill="url(#bmGrad)" data-page-node-id="K6E78BWPHL0iGYY0D3jcXs"/>
+      </svg>
+      <div class="brand-text" data-page-node-id="qCvLM8NWg27v9K1npOXR8k">
+        <h1 data-page-node-id="2vZhHU2uksGbdzVtnwIpWV">神瞳图鉴</h1>
+        <p data-page-node-id="IuuGKSryuBTTtfvub2Xqys">Teyvat Oculus Atlas</p>
+      </div>
+    </div>
+
+    <div class="topbar-stats" id="globalStats" data-page-node-id="SgEO7oYglgB2uoSF7oYOQI"></div>
+
+    <div class="topbar-actions" data-page-node-id="xyiyZsF6wo421vP4OR5LFz">
+      <button class="btn btn-ghost mobile-only" id="btnRail" type="button" aria-label="区域与筛选" data-page-node-id="tZCOCNlFKOyT9hpDvnfO6E">
+        <svg viewBox="0 0 16 16" aria-hidden="true" data-page-node-id="E63zvEt4nzPpTLM1lxc8si"><path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h11" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" data-page-node-id="hwhTo3FKawQsyQIQz1F32M"/></svg>
+        <span data-page-node-id="dfu5cJtIncJg0ngsgwpY0a">区域</span>
+      </button>
+      <div class="search" id="search">
+        <button class="search-toggle" id="searchToggle" type="button" aria-label="按编号搜索">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="4.6" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M10.5 10.5 14 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        </button>
+        <div class="search-box">
+          <svg class="search-icon" viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="4.6" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M10.5 10.5 14 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+          <input id="searchInput" type="search" placeholder="搜索编号：岩12 / 12" autocomplete="off" spellcheck="false" aria-label="按类型和编号搜索收集物">
+          <button class="search-clear" id="searchClear" type="button" aria-label="清空搜索">
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+        <div class="search-results" id="searchResults" hidden></div>
+      </div>
+
+      <button class="btn btn-ghost btn-icon" id="btnTheme" type="button" aria-label="切换深色模式" aria-pressed="false" title="切换深色 / 浅色">
+        <svg class="ic-moon" viewBox="0 0 16 16" aria-hidden="true"><path d="M13.2 9.6A5.6 5.6 0 0 1 6.4 2.8a5.6 5.6 0 1 0 6.8 6.8Z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>
+        <svg class="ic-sun" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3.1" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M8 1.4v1.7M8 12.9v1.7M1.4 8h1.7M12.9 8h1.7M3.3 3.3l1.2 1.2M11.5 11.5l1.2 1.2M12.7 3.3l-1.2 1.2M4.5 11.5l-1.2 1.2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+      </button>
+      <button class="btn btn-ghost" id="btnLegend" type="button" data-page-node-id="ilVnikAhDhZAKfBHDHugO1">
+        <svg viewBox="0 0 16 16" aria-hidden="true" data-page-node-id="xI2ps1OGjXXjgQRgEydcVn"><circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" stroke-width="1.3" data-page-node-id="vLGkeccfJjUU4kSJEFqbdX"/><path d="M8 7.2v4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" data-page-node-id="lzWCKIwuIrOoYjkfDlLqci"/><circle cx="8" cy="4.9" r=".85" fill="currentColor" data-page-node-id="ocqKeRNRHqRhKmPO8JY5k5"/></svg>
+        <span data-page-node-id="Fu9NZqIhzIzBN8Yhe0Zx4I">图例</span>
+      </button>
+      <button class="btn btn-primary" id="btnCollection" type="button" data-page-node-id="aR7xEnlat1VwqvDdwp6zxK">
+        <svg viewBox="0 0 16 16" aria-hidden="true" data-page-node-id="JDMOt3HSnx8GiVQLehO33I"><path d="M4 2.5h8v11l-4-2.6-4 2.6z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round" data-page-node-id="cfOFshUEqv4WzyiqvVUUop"/></svg>
+        <span data-page-node-id="1TgDtywq4ozYV7wtZoUjjG">采集清单</span>
+        <em id="todoCount" data-page-node-id="EQNNXxRpnjO4117GzxJPdg">0</em>
+      </button>
+    </div>
+  </header>
+
+  <main class="layout" data-page-node-id="fK1TDyFnp8EBM6RTrFWXVj">
+
+    <!-- ============ 左侧栏 ============ -->
+    <aside class="rail" id="rail" data-page-node-id="z1eubGO9FLzAlA04MhGzTs">
+      <div class="rail-scroll" data-page-node-id="iPD3U60JC1AcgnLaGVQMGj">
+        <section class="rail-block" data-page-node-id="hd3Jw1DKDLZDHhkQPOBrJH">
+          <h2 class="rail-head" data-page-node-id="NlpBNDG4e0s1fA54C9FAHW">区域 <span class="rail-sub" data-page-node-id="lYtd6zzXakTBTZtDb2j06X">REGIONS</span></h2>
+          <nav class="region-list" id="regionList" aria-label="区域选择" data-page-node-id="7gzlqAasfwlOmdJF5ue9EW"></nav>
+        </section>
+
+        <section class="rail-block" data-page-node-id="pK7VlWdZ1J4RY6IOgbWIvu">
+          <h2 class="rail-head" data-page-node-id="7uofBYlr3eeXgFEBUADQM5">层级 <span class="rail-sub" data-page-node-id="g1bEcZdD6WUbIrAH8N1vKK">LAYERS</span></h2>
+          <div class="layer-tabs" id="layerTabs" role="tablist" aria-label="层级切换" data-page-node-id="mMTxoaUv3tjjPVgo54gY6P"></div>
+          <p class="layer-note" id="layerNote" data-page-node-id="leATZmz6cZDvCTbh8UZr0W"></p>
+        </section>
+
+        <section class="rail-block" data-page-node-id="wgmkQk677nVxP6toV4Jxw6">
+          <h2 class="rail-head" data-page-node-id="iwq7hAFoKWvLOfXyZQOm4b">筛选 <span class="rail-sub" data-page-node-id="VAXC1JyBVs15KCpPJlGr79">FILTERS</span></h2>
+          <div class="chip-list" id="typeFilters" data-page-node-id="cv4gUPgpoSkN82HvGMiOpX"></div>
+          <label class="switch" data-page-node-id="yT4PEeNRf2JOo5HcnhxRZS">
+            <input type="checkbox" id="hideDone" data-page-node-id="GsNGEvGhPErsGB5XMi3Ava">
+            <span class="switch-track" data-page-node-id="xHbSEeI5EqLozieNxNC1jA"><span class="switch-dot" data-page-node-id="XkAMoUGqgPeF9xTs8ytDsW"></span></span>
+            <span data-page-node-id="Op1MpO3s4H3igPsbpZOEx9">隐藏已采集</span>
+          </label>
+          <label class="switch" id="depthWrap" hidden data-page-node-id="Lq2KcpsVdtByhBkhE1FeMW">
+            <input type="checkbox" id="depthOnly" data-page-node-id="1kUQuoAIrB4xOPCvYtAHs4">
+            <span class="switch-track" data-page-node-id="qN52bS0i1AsMunYAn9Bodi"><span class="switch-dot" data-page-node-id="ZYqtfaUdtXabdmP8NH9a8v"></span></span>
+            <span data-page-node-id="bIBQnyYnOePUlAHdat6xmX">仅看水下 / 地下层级</span>
+          </label>
+        </section>
+        <section class="rail-block rail-account" id="railAccount">
+          <p class="acct-head"><b>账号与同步</b><span class="acct-badge" id="acctBadge">未登录</span></p>
+
+          <div class="acct-guest" id="acctGuest">
+            <p class="acct-note">进度目前只存在这台设备上，登录后会同步到云端。</p>
+            <button class="btn btn-ghost btn-sm acct-wide" id="btnShowLogin" type="button">登录 / 注册</button>
+            <div class="acct-form" id="acctForm" hidden>
+              <div class="acct-tabs" role="tablist">
+                <button type="button" class="is-active" data-atab="login">登录</button>
+                <button type="button" data-atab="signup">注册</button>
+              </div>
+
+              <div class="acct-pane" id="acctPaneLogin">
+                <input id="acctEmail" type="email" inputmode="email" autocomplete="email" spellcheck="false" placeholder="邮箱">
+                <input id="acctPass" type="password" autocomplete="current-password" placeholder="密码">
+                <button class="btn btn-ghost btn-sm acct-wide" id="btnLoginPass" type="button">登录</button>
+              </div>
+
+              <div class="acct-pane" id="acctPaneSignup" hidden>
+                <div class="acct-otp">
+                  <input id="acctRegEmail" type="email" inputmode="email" autocomplete="email" spellcheck="false" placeholder="邮箱">
+                  <button class="acct-mini" id="btnSendCode" type="button" hidden>获取验证码</button>
+                </div>
+                <input id="acctRegCode" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="8" placeholder="邮箱验证码" hidden>
+                <input id="acctRegName" type="text" maxlength="20" autocomplete="nickname" placeholder="昵称（可选）">
+                <input id="acctRegPass" type="password" autocomplete="new-password" placeholder="设置密码（至少 6 位）">
+                <button class="btn btn-ghost btn-sm acct-wide" id="btnRegister" type="button">注册并登录</button>
+              </div>
+
+              <div class="acct-or" id="acctOr" hidden><span>或</span></div>
+              <button class="btn btn-ghost btn-sm acct-wide" id="btnWeChat" type="button" hidden>微信扫码登录</button>
+              <button class="acct-collapse" id="btnHideLogin" type="button">收起</button>
+            </div>
+          </div>
+
+          <div class="acct-user-box" id="acctUserBox" hidden>
+            <p class="acct-user" id="acctUser"></p>
+            <p class="acct-state" id="acctState">正在读取云端进度…</p>
+            <div class="acct-row">
+              <button class="btn btn-ghost btn-sm" id="btnSyncNow" type="button">立即同步</button>
+              <button class="btn btn-ghost btn-sm" id="btnSignOut" type="button">退出登录</button>
+            </div>
+          </div>
+          <p class="acct-msg" id="acctMsg" hidden></p>
+        </section>
+
+        <section class="rail-block rail-actions" id="railActions">
+          <button class="btn btn-ghost btn-sm" id="btnProgress" type="button">进度总览</button>
+          <button class="btn btn-ghost btn-sm" id="btnUpdate" type="button">检查更新</button>
+          <button class="btn btn-ghost btn-sm" id="btnChangelog" type="button">更新日志</button>
+          <p class="upd-status" id="updStatus">尚未检查</p>
+          <button class="btn btn-ghost btn-sm" id="btnLegendRail" type="button">图例与说明</button>
+          <button class="btn btn-ghost btn-sm" id="btnInstallRail" type="button" hidden>安装应用</button>
+        </section>
+
+        <section class="rail-block rail-tip" data-page-node-id="nOSH5dc41c2iiDXAeoRfA7">
+          <p data-page-node-id="fbZGivAjck1F1QH8ZQbpoH"><b data-page-node-id="v9s37h4Q8zMk1YhSDYDCK8">操作提示</b></p>
+          <ul data-page-node-id="j0xoONZGzYwf3pqe6fkarI">
+            <li data-page-node-id="rwPwBCZ1PVXyRh8yEXuLMR">拖拽地图移动，滚轮 / 双指缩放</li>
+            <li data-page-node-id="Rz7jARBiRoLS5yAFpPdoZj">点击神瞳图标查看详情</li>
+            <li data-page-node-id="WnsKYRqODqVC40XLT4U5yV">双击地图快速放大</li>
+          </ul>
+          <p class="rail-credit" data-page-node-id="drhUMSpJyVjDCsyL9rYwql">地图与点位数据来自米游社《原神》官方互动地图；本工具为非官方玩家工具。</p>
+        </section>
+      </div>
+    </aside>
+
+    <!-- ============ 地图区 ============ -->
+    <section class="map-area" data-page-node-id="ZyJDzoOEt8WHl9TEVzK31y">
+      <div class="map-viewport" id="mapViewport" data-page-node-id="go3oyjK3y9Jb8PecxMQSOl">
+        <div class="map-world" id="mapWorld" data-page-node-id="AQjdAuEsBQgJiAeLusGdDR">
+          <div class="tile-layer" id="tileBase" data-page-node-id="lvimTMCYf5qhnHeKgcD6zD"></div>
+          <div class="tile-layer" id="tileDetail" data-page-node-id="kSGpCyNL6lsxfZCXU55Z6z"></div>
+        </div>
+        <svg class="route-svg" id="routeSvg" aria-hidden="true"></svg>
+        <div class="map-markers" id="mapMarkers" data-page-node-id="PgDPCD3WgnQ0z5fEN24AMW"></div>
+
+        <div class="map-hud" data-page-node-id="JSHabNUdXXyU9LEcaEHqlG">
+          <div class="hud-region" id="hudRegion" data-page-node-id="LG0pNcn5dbOpmpxnYiYbXF"></div>
+          <div class="hud-layer" id="hudLayer" data-page-node-id="HdTQg0JWnxVl8mILfxyvoT"></div>
+          <div class="hud-route" id="hudRoute" hidden></div>
+        </div>
+
+        <div class="map-tools" data-page-node-id="ftbnYFDecA5iAmHHDhW91Z">
+          <button type="button" data-act="zoom-in" aria-label="放大" data-page-node-id="ibXPzlk2bvhpntAbFuCLw3">
+            <svg viewBox="0 0 16 16" data-page-node-id="0LOSfKFYzgUYN4eHYUChlH"><path d="M8 3.5v9M3.5 8h9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" data-page-node-id="y3AWAOwSpTITzG0kwrvviW"/></svg>
+          </button>
+          <button type="button" data-act="zoom-out" aria-label="缩小" data-page-node-id="e77BZHFVRuwRnG1WCBq648">
+            <svg viewBox="0 0 16 16" data-page-node-id="uGJiwyU7KNL9OT95SJBEFI"><path d="M3.5 8h9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" data-page-node-id="GUsV2gLj1aVyWjpyFjAnsg"/></svg>
+          </button>
+          <button type="button" data-act="fit" aria-label="适应区域" data-page-node-id="jxxyHTU202P3NHzZ2OZC4P">
+            <svg viewBox="0 0 16 16" data-page-node-id="CEvjX8ySFXZkvhf5J5kmFD"><path d="M6 2.8H2.8V6M10 2.8h3.2V6M6 13.2H2.8V10M10 13.2h3.2V10" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" data-page-node-id="xoGhLro5cFmHekhlRtd0dF"/></svg>
+          </button>
+          <button type="button" data-act="route" aria-label="规划未采集路线" title="规划未采集路线">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="3.4" cy="12.4" r="1.5"/><circle cx="12.6" cy="3.6" r="1.5"/><path d="M4.6 11.2c1.6-1.2 1.2-3.4 3.2-4.4 1.4-.7 2.2-1.4 2.9-2.4"/></svg>
+          </button>
+        </div>
+
+        <div class="map-legend" id="mapLegend" data-page-node-id="xyN7bCAS2FVSH3rfdAlAb9"></div>
+        <div class="map-loading" id="mapLoading" data-page-node-id="Eq1DfV5OffSQzEeXiOWvJD"><span data-page-node-id="N4nnibVkBZoCTUY2GFy2mj"></span>正在载入地图…</div>
+      </div>
+    </section>
+
+    <!-- ============ 详情面板 ============ -->
+    <aside class="detail-panel" id="detailPanel" aria-hidden="true" aria-label="神瞳详情" data-page-node-id="uoV5wE7rqnTYOqaVDZ4v42"></aside>
+  </main>
+</div>
+
+<!-- ============ 采集清单抽屉 ============ -->
+<div class="drawer-wrap" id="drawerWrap" aria-hidden="true" data-page-node-id="z0ZQZcR2cMYcPUDhR08RJC">
+  <div class="drawer-scrim" data-close="drawer" data-page-node-id="etmi7VyRIXD552BvKomwsS"></div>
+  <aside class="drawer" role="dialog" aria-modal="true" aria-label="采集清单" data-page-node-id="FTqWzOtRdRXRJHoNnZDlg4">
+    <header class="drawer-head" data-page-node-id="pGNaUX5BqPFNic7cT7Uqbd">
+      <h2 data-page-node-id="hQNu1UqHFjuP41z6KnbTgW">采集清单</h2>
+      <button class="icon-btn" data-close="drawer" aria-label="关闭" data-page-node-id="jVPQsln4am0w1AEc6na7DB">
+        <svg viewBox="0 0 16 16" data-page-node-id="GUyC3cg1x1n35VhB6C22xd"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" data-page-node-id="skqy8Jag5JWQMcqgvu9AHB"/></svg>
+      </button>
+    </header>
+    <div class="drawer-tabs" role="tablist" data-page-node-id="e9YZfxFWUp80WgSKwkihOe">
+      <button type="button" class="is-active" data-tab="todo" data-page-node-id="L9ZdG4SmdpR4hWtbZ5w5BL">待采集 <em id="tabTodoCount" data-page-node-id="4SLaHZLayHx1mH4DAcKfn2">0</em></button>
+      <button type="button" data-tab="done" data-page-node-id="b7EeoIRBoEDJcfcsIRcdjc">已采集 <em id="tabDoneCount" data-page-node-id="m6mn1izRD8FCVUsRNeDArB">0</em></button>
+    </div>
+    <div class="drawer-body" id="drawerBody" data-page-node-id="USEgXA3D0CoMZAemzWNpsQ"></div>
+    <footer class="drawer-foot" data-page-node-id="sRD1TURPPER7PI5R13IAR0">
+      <button class="btn btn-ghost btn-sm" type="button" id="btnExport" data-page-node-id="EFhTbOwGsxgfUEN5o87FKS">导出进度</button>
+      <button class="btn btn-ghost btn-sm" type="button" id="btnImport" data-page-node-id="1LdAGiPIsOuG1dAvnhb5JG">导入进度</button>
+      <button class="btn btn-ghost btn-sm is-danger" type="button" id="btnClear" data-page-node-id="I1YAR8PT1Dp9eb5P5Vsfyy">清空当前页</button>
+      <input type="file" id="importFile" accept="application/json,.json" hidden data-page-node-id="f0Cfl72xF6Gra97Y3io4ar">
+    </footer>
+  </aside>
+</div>
+
+<!-- ============ 图例 / 说明 ============ -->
+<div class="drawer-wrap" id="legendWrap" aria-hidden="true" data-page-node-id="FPTgf8v6OYTG0BhS07M0K8">
+  <div class="drawer-scrim" data-close="legend" data-page-node-id="JuLCbCtbwsBE2LWfYGTDBp"></div>
+  <aside class="drawer drawer-legend" role="dialog" aria-modal="true" aria-label="图例说明" data-page-node-id="qLrMuoG6fKrMEE8l6dlDZi">
+    <header class="drawer-head" data-page-node-id="0kQFOASrUrG1cHUTHgpF1c">
+      <h2 data-page-node-id="A2gMI3k0ODg7Pvw4gfCFny">图例与说明</h2>
+      <button class="icon-btn" data-close="legend" aria-label="关闭" data-page-node-id="36r4rTRRSOuRIDTDEAJrDS">
+        <svg viewBox="0 0 16 16" data-page-node-id="XsGmuEXRncIWC23DJUnqgj"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" data-page-node-id="gEeBrDA7b0jWbF8vN5kQCX"/></svg>
+      </button>
+    </header>
+    <div class="drawer-body legend-body" id="legendBody" data-page-node-id="XVQ273A5bIl8jQJMx9NVAb"></div>
+  </aside>
+</div>
+
+<!-- ============ 进度总览 ============ -->
+<div class="drawer-wrap" id="progressWrap" aria-hidden="true">
+  <div class="drawer-scrim" data-close="progress"></div>
+  <aside class="drawer drawer-progress" role="dialog" aria-modal="true" aria-label="进度总览">
+    <header class="drawer-head">
+      <h2>进度总览</h2>
+      <button class="icon-btn" data-close="progress" aria-label="关闭">
+        <svg viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      </button>
+    </header>
+    <div class="drawer-body progress-body" id="progressBody"></div>
+  </aside>
+</div>
+
+<!-- ============ 攻略图解（区域收集物） ============ -->
+<div class="drawer-wrap" id="guideExtraWrap" aria-hidden="true">
+  <div class="drawer-scrim" data-close="guideExtra"></div>
+  <aside class="drawer drawer-guide" role="dialog" aria-modal="true" aria-label="攻略图解">
+    <header class="drawer-head">
+      <h2 id="guideExtraTitle">攻略图解</h2>
+      <button class="icon-btn" data-close="guideExtra" aria-label="关闭">
+        <svg viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      </button>
+    </header>
+    <div class="drawer-body guide-extra-body" id="guideExtraBody"></div>
+  </aside>
+</div>
+
+<!-- ============ 更新日志抽屉 ============ -->
+<div class="drawer-wrap" id="changelogWrap" aria-hidden="true">
+  <div class="drawer-scrim" data-close="changelog"></div>
+  <aside class="drawer drawer-log" role="dialog" aria-modal="true" aria-label="更新日志">
+    <header class="drawer-head">
+      <h2>更新日志</h2>
+      <button class="icon-btn" data-close="changelog" aria-label="关闭">
+        <svg viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      </button>
+    </header>
+    <div class="drawer-body" id="changelogBody"></div>
+  </aside>
+</div>
+
+<!-- ============ 资源更新进度 ============ -->
+<div class="upd-card" id="updCard" hidden aria-live="polite">
+  <div class="upd-head">
+    <i class="upd-dot"></i>
+    <b class="upd-title">正在获取新内容</b>
+    <button class="upd-close icon-btn" type="button" aria-label="收起">
+      <svg viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+    </button>
+  </div>
+  <div class="upd-bar"><i></i></div>
+  <div class="upd-foot"><span class="upd-meta"></span><span class="upd-sub"></span></div>
+</div>
+
+<!-- ============ 截图放大灯箱 ============ -->
+<div class="lightbox" id="lightbox" aria-hidden="true" role="dialog" aria-modal="true" aria-label="截图放大">
+  <div class="lightbox-scrim" data-close="lightbox"></div>
+  <figure class="lightbox-stage" id="lightboxStage">
+    <img id="lightboxImg" alt="实景截图放大">
+    <div class="lightbox-loading" id="lightboxLoading"><span></span>加载高清截图…</div>
+  </figure>
+  <button class="lightbox-close" type="button" data-close="lightbox" aria-label="关闭放大视图">
+    <svg viewBox="0 0 20 20"><path d="M5 5l10 10M15 5L5 15" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+  </button>
+  <div class="lightbox-cap" id="lightboxCap"></div>
+  <div class="lightbox-hint">点击图片可再放大 · 拖动查看细节 · Esc 关闭</div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite" data-page-node-id="PEMuTHEDeSyJahCxkahCcL"></div>
+
+<script src="js/cloud-config.js?v=20261031-10"></script>
+<script src="js/cloud-own.js?v=20261031-10"></script>
+<script src="js/lib.js?v=20261031-10"></script>
+<script src="js/map.js?v=20261031-10"></script>
+<script src="js/upstream.js?v=20261031-10"></script>
+<script src="js/app.js?v=20261031-10"></script>
+</body>
+</html>
