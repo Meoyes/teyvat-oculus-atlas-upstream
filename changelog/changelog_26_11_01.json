@@ -71,6 +71,31 @@
    "codeRemoved": [],
    "bytes": 0,
    "codeBytes": 135774
+  },
+  {
+   "version": "2026.11.01.4",
+   "at": "2026-11-01T11:02+08:00",
+   "title": "界面与功能更新",
+   "tags": [
+    "安全",
+    "界面",
+    "账号"
+   ],
+   "note": "安全加固：manifest Ed25519 验签+逐文件哈希校验、?upstream= 白名单化、账号 jti 吊销/改密/恢复码、进度按键 LWW 合并、PBKDF2 提至 600000",
+   "summary": "代码 4",
+   "added": [],
+   "changed": [],
+   "removed": [],
+   "codeAdded": [],
+   "codeChanged": [
+    "index.html",
+    "js/app.js",
+    "js/cloud-own.js",
+    "js/upstream.js"
+   ],
+   "codeRemoved": [],
+   "bytes": 0,
+   "codeBytes": 196250
   }
  ]
 }

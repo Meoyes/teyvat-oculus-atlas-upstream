@@ -34,6 +34,21 @@
   // 测试/调试：?noupd=1 关闭自动检查，只保留手动入口
   const NO_AUTO = new URLSearchParams(location.search).has('noupd');
 
+  // 生产环境一律不认 ?upstream= 与来历不明的 base：更新源只允许内置白名单。
+  // 本地开发（localhost / 127.0.0.1 / ::1）保留 ?upstream= 调试通道。
+  const IS_LOCAL_DEV = /^(localhost|127\.0\.0\.1|\[::1\]$|.*\.localhost$)/.test(location.hostname);
+
+  function allowedBases() {
+    return CFG.bases.map((b) => b.replace('{o}', CFG.owner).replace('{r}', CFG.repo).replace('{b}', CFG.branch));
+  }
+
+  // 校验持久化的 base：非本地来源下，不在白名单里的一律作废（防 localStorage 被写脏后长期投毒）
+  function sanitizeBase(b) {
+    if (!b) return null;
+    if (IS_LOCAL_DEV) return b;
+    return allowedBases().includes(b) ? b : null;
+  }
+
   /* 代码类路径（js/ css/）永远不属于上游资源：读状态时就地剔除，
      这样即使历史状态被写脏，diff / apply 也不会再碰它们 */
   const CODE_PATH = /^(js|css)\//;
@@ -71,7 +86,8 @@
   let state = Local.read();
   let baseline = null;          // 站点内置基线 manifest
   let pending = null;           // 待应用的 manifest
-  let base = state.base || null;
+  let base = sanitizeBase(state.base);
+  if (state.base && base !== state.base) { delete state.base; Local.write(state); }
   let running = false;
   let lastInfo = null;
 
@@ -79,11 +95,11 @@
   const now = () => Date.now();
 
   function baseUrl() {
-    // 本地测试：?upstream=http://127.0.0.1:8901/
+    // 本地测试：?upstream=http://127.0.0.1:8901/（仅限本地开发来源）
     const q = new URLSearchParams(location.search).get('upstream');
-    if (q) return q.endsWith('/') ? q : q + '/';
+    if (q && IS_LOCAL_DEV) return q.endsWith('/') ? q : q + '/';
     if (base) return base;
-    return CFG.bases[0].replace('{o}', CFG.owner).replace('{r}', CFG.repo).replace('{b}', CFG.branch);
+    return allowedBases()[0];
   }
 
   function abs(path) { return new URL(path, location.href).href; }
@@ -133,6 +149,53 @@
     }
   }
 
+  async function fetchText(url) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), CFG.timeout);
+    try {
+      const res = await fetch(url, { cache: 'no-store', signal: ctrl.signal });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return await res.text();
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  /* ------------------------------------------------ manifest 验签（H1.2 / TUF 思路）
+     生产环境的清单必须携带 Ed25519 签名（manifest.json.sig，对 manifest.json
+     原始字节签名）。公钥钉死在下方常量，私钥只存在构建机（离线）。
+     - 验签失败 / 签名缺失 → 该镜像作废，换下一个
+     - 浏览器不支持 Ed25519（如三星浏览器旧版）→ 降级放行（来源已被 H1.1
+       白名单限制为 GitHub TLS），并在状态里标记 unsupported
+     - 本地开发（?upstream=）跳过验签，方便假上游调试 */
+  const MANIFEST_PUBKEY = 'hSv1fRnb1oggKaxY1e/QItI8kYTIx+DiBDB0GEQ6Y9M=';
+  let sigMode = null;              // null=未探测 | 'ok' | 'unsupported' | 'off-dev'
+
+  function b64ToU8(b64) {
+    const bin = atob(b64);
+    const u = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
+    return u;
+  }
+
+  async function verifyManifestSig(text, sigB64) {
+    if (sigMode === 'unsupported') return 'unsupported';
+    let sigBytes;
+    try { sigBytes = b64ToU8(sigB64); }
+    catch (e) { return 'bad'; }              // 签名不是合法 base64 → 拒绝，绝不降级
+    try {
+      const key = await crypto.subtle.importKey(
+        'raw', b64ToU8(MANIFEST_PUBKEY), { name: 'Ed25519' }, false, ['verify']);
+      const ok = await crypto.subtle.verify(
+        { name: 'Ed25519' }, key, sigBytes, new TextEncoder().encode(text));
+      sigMode = 'ok';
+      return ok ? 'ok' : 'bad';
+    } catch (e) {
+      sigMode = 'unsupported';               // 浏览器不支持 Ed25519 才降级
+      return 'unsupported';
+    }
+  }
+
   async function loadManifest() {
     const tried = [];
     const list = [baseUrl()].concat(CFG.bases.map((b) => b.replace('{o}', CFG.owner).replace('{r}', CFG.repo).replace('{b}', CFG.branch)));
@@ -141,11 +204,29 @@
       if (!b) continue;
       tried.push(b);
       try {
-        const m = await fetchJSON(b + 'manifest.json?t=' + Math.floor(now() / 60000));
-        if (m && m.files) { base = b; state.base = b; Local.write(state); return m; }
+        const text = await fetchText(b + 'manifest.json?t=' + Math.floor(now() / 60000));
+        let sig = null;
+        try { sig = (await fetchText(b + 'manifest.json.sig?t=' + Math.floor(now() / 60000))).trim(); }
+        catch (e) { sig = null; }
+        /* 只有 https 源（生产镜像：GitHub / jsDelivr）强制验签；
+           本地/测试用的 http 源（?upstream= 或 GEL_UPSTREAM_CONFIG 覆盖到假上游）跳过。
+           生产路径上 base 恒为白名单 https 源（H1.1），所以验签恒生效。 */
+        if (/^https:\/\//.test(b)) {
+          if (!sig) { tried.push('(缺签名)'); continue; }
+          const verdict = await verifyManifestSig(text, sig);
+          if (verdict === 'bad') { tried.push('(验签失败)'); continue; }
+        } else {
+          sigMode = 'off-dev';
+        }
+        const m = JSON.parse(text);
+        if (m && m.files) {
+          base = sanitizeBase(b);
+          if (base) { state.base = base; state.sig = sigMode; Local.write(state); }
+          return m;
+        }
       } catch (e) { /* 换下一个镜像 */ }
     }
-    throw new Error('上游不可达：' + tried.join(' , '));
+    throw new Error('上游不可达或清单不可信：' + tried.join(' , '));
   }
 
   async function getBaseline() {
@@ -343,7 +424,7 @@
     showCard('正在更新界面', 0, total, '');
     let done = 0;
     for (const rel of list) {
-      const put = await download(b, 'code/' + rel, rel);
+      const put = await download(b, 'code/' + rel, rel, code.files[rel]);
       await cache.put(bundleKey(code.version, rel), put.res);
       done += 1;
       showCard('正在更新界面', done, total, rel);
@@ -458,6 +539,7 @@
       code: cd,
       updated: d.total > 0 || d.removed.length > 0 || cd.total > 0 || cd.removed.length > 0,
       needsUpgrade: s.needsUpgrade || null,
+      sig: sigMode,
       changelog: manifest.changelog || [],
       manifest,
     };
@@ -491,6 +573,7 @@
       codeChangedTotal: (cd.total || 0) + (cd.removed || []).length,
       bytes: info.bytes || 0, skipped: !!info.skipped, error: info.error || null,
       needsUpgrade: info.needsUpgrade || null, appVer: APP_VER,
+      sig: info.sig || null,
       deferred: info.deferred || 0,
       changelog: info.changelog || [],
       sample: (info.added || []).slice(0, 5).concat((info.changed || []).slice(0, 5)),
@@ -529,7 +612,7 @@
 
     for (const path of list) {
       try {
-        const put = await download(b, path);
+        const put = await download(b, path, null, manifest.files[path]);
         bytes += put.size;
         await cache.put(abs(path), put.res);
       } catch (e) {
@@ -603,7 +686,14 @@
   // 单个文件下载（带超时），返回可直接写入缓存的 Response
   // typePath：按「站点内的真实路径」推断 MIME（raw.githubusercontent 会发 text/plain，
   //           直接沿用会让脚本/样式拿到错误类型）
-  async function download(b, path, typePath) {
+  // expected：manifest 里的 [size, sha256前16位]。下载后逐文件校验（H1.3 纵深：
+  //           清单已验签，这里保证「写进缓存的字节」就是清单承诺的字节）
+  async function sha256Hex(buf) {
+    const d = await crypto.subtle.digest('SHA-256', buf);
+    return Array.from(new Uint8Array(d)).map((x) => x.toString(16).padStart(2, '0')).join('');
+  }
+
+  async function download(b, path, typePath, expected) {
     const url = b + path + '?t=' + Math.floor(now() / 60000);
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), CFG.timeout);
@@ -613,6 +703,13 @@
     } finally { clearTimeout(timer); }
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const buf = await res.arrayBuffer();
+    if (expected) {
+      if (expected[0] && buf.byteLength !== expected[0]) throw new Error('大小不符: ' + path);
+      if (expected[1]) {
+        const hex = await sha256Hex(buf);
+        if (!hex.startsWith(String(expected[1]).toLowerCase())) throw new Error('哈希不符: ' + path);
+      }
+    }
     const type = typePath
       ? guessType(typePath)
       : (res.headers.get('Content-Type') || guessType(path));
@@ -635,7 +732,8 @@
     let ok = 0, failed = 0;
     for (const p of paths) {
       try {
-        const put = await download(b, p);
+        /* s.deferred[p] 存的是 sha256 前 16 位字符串；包装成 [size, hash] 形态 */
+        const put = await download(b, p, null, def[p] ? [0, def[p]] : null);
         await cache.put(abs(p), put.res);
         delete def[p];
         ok++;
@@ -914,6 +1012,8 @@
     config: CFG, appVer: APP_VER, check, apply, ensureMap, openChangelog, closeChangelog,
     isChangelogOpen, diff, codeDiff, cmpVersion, cmpAppVersion, mapOf, loadAnnounce, refreshAnnounce,
     sanitize, healState, installCode, readActive, writeActive, bundleKey, codeState, saveCodeState,
+    baseUrl, sanitizeBase, isLocalDev: IS_LOCAL_DEV, sigMode: () => sigMode,
+    verifyManifestSig, download,
     deferred: () => Object.keys(Local.read().deferred || {}),
     state: () => Local.read(), pending: () => pending,
     reset() { localStorage.removeItem(KEY); state = {}; pending = null; },

@@ -79,7 +79,7 @@ try {
 <link rel="preconnect" href="https://act.hoyoverse.com" crossorigin>
 <link rel="stylesheet" media="print" onload="this.media='all'"
       href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@500;600;700&family=Noto+Sans+SC:wght@400;500;600&display=swap" data-page-node-id="06SAskCDp0jLwQSy4Fu6sa">
-<link rel="stylesheet" href="css/style.css?v=20261101-1" data-page-node-id="QF6wrlSleLz5L9tHvrxGnO">
+<link rel="stylesheet" href="css/style.css?v=20261101-2" data-page-node-id="QF6wrlSleLz5L9tHvrxGnO">
 </head>
 <body data-page-node-id="wkhfDViUHYSgCoYBh7AGGC">
 <div id="app" data-page-node-id="gBPaI7hqV7frQwkCpS5sCZ">
@@ -192,6 +192,15 @@ try {
                 <input id="acctEmail" type="email" inputmode="email" autocomplete="email" spellcheck="false" placeholder="邮箱">
                 <input id="acctPass" type="password" autocomplete="current-password" placeholder="密码">
                 <button class="btn btn-ghost btn-sm acct-wide" id="btnLoginPass" type="button">登录</button>
+                <button class="acct-collapse" id="btnShowReset" type="button">忘记密码？用恢复码重置</button>
+              </div>
+
+              <div class="acct-pane" id="acctPaneReset" hidden>
+                <input id="acctResetEmail" type="email" inputmode="email" autocomplete="email" spellcheck="false" placeholder="注册邮箱">
+                <input id="acctResetCode" type="text" autocomplete="off" spellcheck="false" placeholder="恢复码（注册时保存的 16 位代码）">
+                <input id="acctResetPass" type="password" autocomplete="new-password" placeholder="新密码（至少 8 位）">
+                <button class="btn btn-ghost btn-sm acct-wide" id="btnResetPass" type="button">重置密码并登录</button>
+                <button class="acct-collapse" id="btnHideReset" type="button">返回登录</button>
               </div>
 
               <div class="acct-pane" id="acctPaneSignup" hidden>
@@ -217,6 +226,13 @@ try {
             <div class="acct-row">
               <button class="btn btn-ghost btn-sm" id="btnSyncNow" type="button">立即同步</button>
               <button class="btn btn-ghost btn-sm" id="btnSignOut" type="button">退出登录</button>
+            </div>
+            <button class="acct-collapse" id="btnShowChpwd" type="button">修改密码 / 登出所有设备</button>
+            <div class="acct-form" id="acctChpwdForm" hidden>
+              <input id="acctChOld" type="password" autocomplete="current-password" placeholder="原密码">
+              <input id="acctChNew" type="password" autocomplete="new-password" placeholder="新密码（至少 8 位）">
+              <button class="btn btn-ghost btn-sm acct-wide" id="btnChpwd" type="button">修改密码（其他设备将被登出）</button>
+              <button class="btn btn-ghost btn-sm acct-wide" id="btnRevokeAll" type="button">仅登出所有设备</button>
             </div>
           </div>
           <p class="acct-msg" id="acctMsg" hidden></p>
@@ -409,11 +425,11 @@ try {
 
 <div class="toast" id="toast" role="status" aria-live="polite" data-page-node-id="PEMuTHEDeSyJahCxkahCcL"></div>
 
-<script src="js/cloud-config.js?v=20261101-1"></script>
-<script src="js/cloud-own.js?v=20261101-1"></script>
-<script src="js/lib.js?v=20261101-1"></script>
-<script src="js/map.js?v=20261101-1"></script>
-<script src="js/upstream.js?v=20261101-1"></script>
-<script src="js/app.js?v=20261101-1"></script>
+<script src="js/cloud-config.js?v=20261101-2"></script>
+<script src="js/cloud-own.js?v=20261101-2"></script>
+<script src="js/lib.js?v=20261101-2"></script>
+<script src="js/map.js?v=20261101-2"></script>
+<script src="js/upstream.js?v=20261101-2"></script>
+<script src="js/app.js?v=20261101-2"></script>
 </body>
 </html>

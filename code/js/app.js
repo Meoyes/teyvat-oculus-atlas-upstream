@@ -17,6 +17,8 @@
     mapRegion: {},
     done: new Set(),
     todo: new Set(),
+    keyTs: {},                 // M1：每键最后修改时间（LWW）
+    removed: {},               // M1：本地删除事件（key -> ts），成功同步后清掉
     idx: new Map(),
     flat: [],
     visibleList: [],
@@ -35,6 +37,8 @@
     const raw = store.get(LS, null) || {};
     App.done = new Set(Array.isArray(raw.done) ? raw.done : []);
     App.todo = new Set(Array.isArray(raw.todo) ? raw.todo : []);
+    App.keyTs = (raw.keyTs && typeof raw.keyTs === 'object') ? raw.keyTs : {};
+    App.removed = (raw.removed && typeof raw.removed === 'object') ? raw.removed : {};
     App.localUpdatedAt = Number(raw.t) || 0;
     App.localOwner = raw.u || null;
   }
@@ -43,6 +47,8 @@
     store.set(LS, {
       done: Array.from(App.done),
       todo: Array.from(App.todo),
+      keyTs: App.keyTs,
+      removed: App.removed,
       t: App.localUpdatedAt,
       u: App.localOwner || null,
       v: 1,
@@ -1275,9 +1281,20 @@
   }
 
   /* ------------------------------------------------ 采集状态 */
+  /* H4/M1：所有状态变更都走这里 —— 记录每键时间戳（LWW 合并用）与本地删除事件 */
   function setKeyState(key, inDone, inTodo) {
-    if (inDone) App.done.add(key); else App.done.delete(key);
-    if (inTodo) App.todo.add(key); else App.todo.delete(key);
+    const ts = Date.now();
+    if (inDone) {
+      App.done.add(key); App.todo.delete(key);
+      App.keyTs[key] = ts; delete App.removed[key];
+    } else if (inTodo) {
+      App.todo.add(key); App.done.delete(key);
+      App.keyTs[key] = ts; delete App.removed[key];
+    } else {
+      const had = App.done.has(key) || App.todo.has(key);
+      App.done.delete(key); App.todo.delete(key);
+      if (had) { App.keyTs[key] = ts; App.removed[key] = ts; }
+    }
   }
 
   /* 带「撤销」的提示（默认 5 秒） */
@@ -1584,7 +1601,7 @@
         const wasDone = App.done.has(key);
         const wasTodo = App.todo.has(key);
         const fromTodo = App.drawerTab === 'todo';
-        if (fromTodo) App.todo.delete(key); else App.done.delete(key);
+        setKeyState(key, false, false);
         afterToggle(key);
         undoToast(fromTodo ? '已移出待采集' : '已取消采集标记',
           () => { setKeyState(key, wasDone, wasTodo); afterToggle(key); });
@@ -2292,8 +2309,40 @@
     renderAccount();
     try {
       const u = acctUserObj();
-      await C.saveProgress(Array.from(App.done), Array.from(App.todo),
+      /* M1：LWW 增量——每键带本地修改时间戳；本地删除事件带时间戳参与服务端裁决 */
+      const fallbackTs = App.localUpdatedAt || Date.now();
+      const entries = [];
+      Array.from(App.done).forEach((k) => entries.push([k, 'done', Number(App.keyTs[k]) || fallbackTs]));
+      Array.from(App.todo).forEach((k) => entries.push([k, 'todo', Number(App.keyTs[k]) || fallbackTs]));
+      const removes = Object.entries(App.removed).map(([k, ts]) => [k, Number(ts) || fallbackTs]);
+      const r = await C.patchProgress(entries, removes,
         (u && (u.name || u.email)) || null);
+      /* 和解：以服务端回传的全量状态 + 时间戳为准对齐本地裁决结果 */
+      if (r && r.ts) {
+        const doneSet = new Set(r.done || []);
+        const todoSet = new Set(r.todo || []);
+        const keys = new Set(Object.keys(App.keyTs).concat(Object.keys(r.ts)));
+        let changed = false;
+        keys.forEach((k) => {
+          const st = Number(r.ts[k]) || 0;
+          const lt = Number(App.keyTs[k]) || 0;
+          if (st > lt) {
+            if (doneSet.has(k)) { App.done.add(k); App.todo.delete(k); }
+            else if (todoSet.has(k)) { App.todo.add(k); App.done.delete(k); }
+            else { App.done.delete(k); App.todo.delete(k); }
+            App.keyTs[k] = st;
+            delete App.removed[k];
+            changed = true;
+          } else if (App.removed[k] && !doneSet.has(k) && !todoSet.has(k)) {
+            delete App.removed[k];      /* 删除事件已被服务端采纳 */
+            changed = true;
+          }
+        });
+        if (changed) {
+          saveStore({ localOnly: true });
+          refreshStats(); applyMarkerStates(); renderDrawer();
+        }
+      }
       const uid = (acctUserObj() || {}).id || null;
       if (uid && App.localOwner !== uid) {
         App.localOwner = uid;
@@ -2324,6 +2373,7 @@
       const row = await C.loadProgress();
       const cloudDone = row && Array.isArray(row.done) ? row.done : [];
       const cloudTodo = row && Array.isArray(row.todo) ? row.todo : [];
+      const cloudTs = row && row.ts && typeof row.ts === 'object' ? row.ts : null;
       const localCount = App.done.size + App.todo.size;
       const cloudCount = cloudDone.length + cloudTodo.length;
       const uid = (acctUserObj() || {}).id || null;
@@ -2334,19 +2384,53 @@
         App.done = new Set(cloudDone);
         App.todo = new Set(cloudTodo);
         Array.from(App.todo).forEach((k) => { if (App.done.has(k)) App.todo.delete(k); });
+        if (cloudTs) {
+          App.keyTs = {};
+          Object.entries(cloudTs).forEach(([k, t]) => { if (cloudDone.includes(k) || cloudTodo.includes(k)) App.keyTs[k] = Number(t) || 0; });
+          App.removed = {};
+        }
         App.localOwner = uid;
         saveStore({ localOnly: true });
         refreshStats(); applyMarkerStates(); renderDrawer();
         acctMsg('已从云端恢复 ' + (App.done.size + App.todo.size) + ' 项进度', 'ok');
       } else if (localCount && sameOwner) {
-        cloudDone.forEach((k) => App.done.add(k));
-        cloudTodo.forEach((k) => { if (!App.done.has(k)) App.todo.add(k); });
-        Array.from(App.todo).forEach((k) => { if (App.done.has(k)) App.todo.delete(k); });
-        App.localOwner = uid;
-        saveStore({ localOnly: true });
-        refreshStats(); applyMarkerStates(); renderDrawer();
-        const gained = (App.done.size + App.todo.size) - localCount;
-        if (cloudCount) acctMsg(gained > 0 ? '已合并云端进度，新增 ' + gained + ' 项' : '本地进度已与云端一致', 'ok');
+        if (cloudTs) {
+          /* M1：按点位键 LWW 合并——时间戳新的赢，双端各自的修改都保留 */
+          const cloudDoneSet = new Set(cloudDone);
+          const cloudTodoSet = new Set(cloudTodo);
+          const keys = new Set(Object.keys(App.keyTs).concat(Object.keys(cloudTs)));
+          let adopted = 0;
+          keys.forEach((k) => {
+            const lt = Number(App.keyTs[k]) || 0;
+            const ct = Number(cloudTs[k]) || 0;
+            if (ct > lt) {
+              if (cloudDoneSet.has(k)) { App.done.add(k); App.todo.delete(k); }
+              else if (cloudTodoSet.has(k)) { App.todo.add(k); App.done.delete(k); }
+              else { App.done.delete(k); App.todo.delete(k); }
+              App.keyTs[k] = ct;
+              delete App.removed[k];
+              adopted++;
+            }
+          });
+          /* 云端旧数据没有时间戳的键：保底按并集收进来 */
+          cloudDone.forEach((k) => { if (!cloudTs[k] && !App.done.has(k) && !App.todo.has(k)) App.done.add(k); });
+          cloudTodo.forEach((k) => { if (!cloudTs[k] && !App.done.has(k) && !App.todo.has(k)) App.todo.add(k); });
+          Array.from(App.todo).forEach((k) => { if (App.done.has(k)) App.todo.delete(k); });
+          App.localOwner = uid;
+          saveStore({ localOnly: true });
+          refreshStats(); applyMarkerStates(); renderDrawer();
+          acctMsg(adopted > 0 ? '已按修改时间合并云端进度（采纳 ' + adopted + ' 项）' : '本地进度已与云端一致', 'ok');
+        } else {
+          /* 旧服务端：退回并集合并 */
+          cloudDone.forEach((k) => App.done.add(k));
+          cloudTodo.forEach((k) => { if (!App.done.has(k)) App.todo.add(k); });
+          Array.from(App.todo).forEach((k) => { if (App.done.has(k)) App.todo.delete(k); });
+          App.localOwner = uid;
+          saveStore({ localOnly: true });
+          refreshStats(); applyMarkerStates(); renderDrawer();
+          const gained = (App.done.size + App.todo.size) - localCount;
+          if (cloudCount) acctMsg(gained > 0 ? '已合并云端进度，新增 ' + gained + ' 项' : '本地进度已与云端一致', 'ok');
+        }
       }
       await pushCloudProgress();
     } catch (e) {
@@ -2421,6 +2505,8 @@
     const other = isLogin ? $('#acctPaneSignup') : $('#acctPaneLogin');
     if (pane) pane.hidden = false;
     if (other) other.hidden = true;
+    const resetPane = $('#acctPaneReset');
+    if (resetPane) resetPane.hidden = true;
     acctMsg('');
   }
 
@@ -2574,6 +2660,12 @@
           acctMsg('正在注册…');
           const session = await C.signUp(email, pass, nameEl ? nameEl.value : '');
           await afterAuth(session, '注册成功，进度开始同步');
+          /* H4：恢复码只显示一次 —— 立刻明示用户保存 */
+          const rc = C.lastRecoveryCode && C.lastRecoveryCode();
+          if (rc) {
+            acctMsg('【请保存恢复码】 ' + rc + ' —— 这是忘记密码时找回账号的唯一凭据，只显示这一次。');
+            toast('恢复码已生成，请在账号面板抄录保存', { duration: 6000 });
+          }
         }
       } catch (e) {
         acctMsg((e && e.message) || '注册失败', 'err');
@@ -2613,6 +2705,99 @@
       resetAcctForm();
       renderAccount();
       toast('已退出登录，进度仍保存在本机');
+    });
+
+    /* ---------------- H4：恢复码重置 / 改密 / 踢设备 ---------------- */
+    const btnShowReset = $('#btnShowReset');
+    const btnHideReset = $('#btnHideReset');
+    if (btnShowReset) btnShowReset.addEventListener('click', () => {
+      const lp = $('#acctPaneLogin');
+      const rp = $('#acctPaneReset');
+      if (lp) lp.hidden = true;
+      if (rp) {
+        rp.hidden = false;
+        const em = $('#acctResetEmail');
+        const le = $('#acctEmail');
+        if (em && le && !em.value) em.value = le.value;
+        setTimeout(() => { if (em) em.focus({ preventScroll: true }); }, 60);
+      }
+      acctMsg('');
+    });
+    if (btnHideReset) btnHideReset.addEventListener('click', () => {
+      const lp = $('#acctPaneLogin');
+      const rp = $('#acctPaneReset');
+      if (rp) rp.hidden = true;
+      if (lp) lp.hidden = false;
+      acctMsg('');
+    });
+
+    const resetBtn = $('#btnResetPass');
+    if (resetBtn) resetBtn.addEventListener('click', async () => {
+      const email = $('#acctResetEmail').value.trim();
+      const code = $('#acctResetCode').value.trim();
+      const np = $('#acctResetPass').value;
+      if (!email || !code || !np) { acctMsg('邮箱、恢复码、新密码都要填', 'err'); return; }
+      resetBtn.disabled = true;
+      try {
+        acctMsg('正在重置…');
+        const r = await C.resetPassword(email, code, np);
+        await afterAuth(r.session, '密码已重置');
+        if (r.recoveryCode) {
+          acctMsg('【请保存新恢复码】 ' + r.recoveryCode + ' —— 旧恢复码已作废，只显示这一次。');
+        }
+      } catch (e) {
+        acctMsg((e && e.message) || '重置失败', 'err');
+      } finally {
+        resetBtn.disabled = false;
+      }
+    });
+
+    const btnShowChpwd = $('#btnShowChpwd');
+    if (btnShowChpwd) btnShowChpwd.addEventListener('click', () => {
+      const f = $('#acctChpwdForm');
+      if (f) f.hidden = !f.hidden;
+    });
+
+    const chpwdBtn = $('#btnChpwd');
+    if (chpwdBtn) chpwdBtn.addEventListener('click', async () => {
+      const op = $('#acctChOld').value;
+      const np = $('#acctChNew').value;
+      if (!op || !np) { acctMsg('原密码和新密码都要填', 'err'); return; }
+      if (String(np).length < 8) { acctMsg('新密码至少 8 位', 'err'); return; }
+      chpwdBtn.disabled = true;
+      try {
+        acctMsg('正在修改…');
+        await C.changePassword(op, np);
+        ['#acctChOld', '#acctChNew'].forEach((s) => { const el = $(s); if (el) el.value = ''; });
+        const f = $('#acctChpwdForm');
+        if (f) f.hidden = true;
+        acctMsg('密码已修改，其他设备已被登出');
+        toast('密码已修改');
+      } catch (e) {
+        acctMsg((e && e.message) || '修改失败', 'err');
+      } finally {
+        chpwdBtn.disabled = false;
+      }
+    });
+
+    const revokeBtn = $('#btnRevokeAll');
+    if (revokeBtn) revokeBtn.addEventListener('click', async () => {
+      revokeBtn.disabled = true;
+      try {
+        await C.revokeAllDevices();
+        await C.signOut();
+        CloudUI.user = null;
+        CloudUI.name = '';
+        CloudUI.status = 'off';
+        CloudUI.lastSync = 0;
+        resetAcctForm();
+        renderAccount();
+        toast('所有设备（含本机）已登出，请重新登录');
+      } catch (e) {
+        acctMsg((e && e.message) || '操作失败', 'err');
+      } finally {
+        revokeBtn.disabled = false;
+      }
     });
   }
 

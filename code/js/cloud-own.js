@@ -153,6 +153,9 @@
       password: pass,
       name: (name || '').trim() || null,
     }, false);
+    /* H4：恢复码只显示一次，先存本地并暴露给 UI 提示用户保存 */
+    lastRecovery = r.recovery_code || null;
+    if (lastRecovery) writeStorage(RECOVERY_KEY, lastRecovery);
     setSession({ token: r.token, user: r.user }, 'signed_in');
     return session;
   }
@@ -181,6 +184,7 @@
       todo: Array.isArray(d.todo) ? d.todo : [],
       owner_name: d.owner_name || null,
       updated_at: d.updated_at || null,
+      ts: d.ts && typeof d.ts === 'object' ? d.ts : {},   // M1：每键 LWW 时间戳
     };
   }
 
@@ -191,6 +195,23 @@
       owner_name: ownerName || null,
     });
     return { updatedAt: d.updated_at || null };
+  }
+
+  /* M1：按键粒度 LWW 同步。entries: [[key, 'done'|'todo', ts]]；
+     removes: [[key, ts]]（服务端只在本地更新时间更新时才执行删除）。
+     返回服务端全量 done/todo/ts 供客户端和解。 */
+  async function patchProgress(entries, removes, ownerName) {
+    const d = await api('/progress/patch', 'POST', {
+      entries: Array.isArray(entries) ? entries : [],
+      removes: Array.isArray(removes) ? removes : [],
+      owner_name: ownerName || null,
+    });
+    return {
+      updatedAt: d.updated_at || null,
+      done: Array.isArray(d.done) ? d.done : [],
+      todo: Array.isArray(d.todo) ? d.todo : [],
+      ts: d.ts && typeof d.ts === 'object' ? d.ts : {},
+    };
   }
 
   async function clearProgress() {
@@ -207,6 +228,50 @@
     return { updatedAt: d.updated_at || null, done: d.done, todo: d.todo };
   }
 
+  /* ---------------- H4：恢复码 / 改密 / 重置 / 吊销 ---------------- */
+  const RECOVERY_KEY = 'gel.cloud.recovery';
+  let lastRecovery = null;      // 注册/重置时服务端一次性返回的明文恢复码
+
+  function lastRecoveryCode() {
+    if (lastRecovery) return lastRecovery;
+    try { return readStorage(RECOVERY_KEY) || null; } catch (e) { return null; }
+  }
+  function clearRecoveryCode() {
+    lastRecovery = null;
+    writeStorage(RECOVERY_KEY, '');
+  }
+
+  /* 退出登录：先尽力吊销当前令牌（服务端拉黑 jti），再清本地会话 */
+  async function signOut() {
+    try { await api('/auth/logout', 'POST', {}, true); } catch (e) { /* 离线也要能登出 */ }
+    setSession(null, 'signed_out');
+  }
+
+  async function changePassword(oldPass, newPass) {
+    const r = await api('/auth/change-password', 'POST', {
+      old_password: oldPass, new_password: newPass,
+    }, true);
+    /* 服务端已吊销其他会话并签发新令牌 */
+    setSession({ token: r.token, user: session && session.user }, 'signed_in');
+    return { ok: true };
+  }
+
+  async function resetPassword(email, recoveryCode, newPass) {
+    const r = await api('/auth/reset-password', 'POST', {
+      email: String(email || '').trim().toLowerCase(),
+      recovery_code: String(recoveryCode || '').trim().toUpperCase(),
+      new_password: newPass,
+    }, false);
+    lastRecovery = r.recovery_code || null;
+    if (lastRecovery) writeStorage(RECOVERY_KEY, lastRecovery);
+    setSession({ token: r.token, user: r.user }, 'signed_in');
+    return { session, recoveryCode: lastRecovery };
+  }
+
+  async function revokeAllDevices() {
+    return api('/auth/revoke-all', 'POST', {}, true);
+  }
+
   w.GEL_CLOUD = {
     enabled: Boolean(BASE),
     caps: { emailCode: false, wechat: false },
@@ -221,6 +286,11 @@
     completeSignup,
     signInWithWeChat,
     signOut,
+    lastRecoveryCode,
+    clearRecoveryCode,
+    changePassword,
+    resetPassword,
+    revokeAllDevices,
     loadProgress,
     saveProgress,
     patchProgress,
