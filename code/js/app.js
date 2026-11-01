@@ -29,6 +29,9 @@
     drawerTab: 'todo',
     map: null,
     els: new Map(),
+    _stateSig: new Map(),      // 增量状态：key -> 四态位签名（避免全量 4×toggle）
+    _poolMapId: null,          // DOM 池当前所属地图
+    _detailKey: null,          // 详情面板当前展示的 key（M5 同键快速路径）
   };
   window.__GEL = App;
 
@@ -610,13 +613,21 @@
   /* ------------------------------------------------ 标记 */
   const GLYPH_WRAP = (key) => `<g transform="translate(9.4,8.6) scale(.47)" fill="none" stroke="#fffdf7" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">${GLYPHS[key] || GLYPHS.geo}</g>`;
 
+  /* pinSvg 按类型缓存：同一类型的 SVG 串完全相同，构建 271 个标记时
+     只解析每种类型 1 次（旧实现逐标记重拼字符串 + 逐份解析） */
+  const PIN_CACHE = new Map();
   function pinSvg(t) {
-    return `<svg viewBox="0 0 30 38" aria-hidden="true">
+    let s = PIN_CACHE.get(t.key);
+    if (!s) {
+      s = `<svg viewBox="0 0 30 38" aria-hidden="true">
       <path d="M15 36.4C15 36.4 3 23.2 3 13.9 3 7.1 8.4 1.9 15 1.9s12 5.2 12 12c0 9.3-12 22.5-12 22.5Z" fill="${t.color}" stroke="#fffdf7" stroke-width="2.2"/>
       <path d="M15 36.4C15 36.4 3 23.2 3 13.9 3 7.1 8.4 1.9 15 1.9" fill="none" stroke="rgba(255,255,255,.5)" stroke-width="1.1"/>
       <circle cx="15" cy="13.9" r="8.6" fill="rgba(255,255,255,.18)"/>
       ${GLYPH_WRAP(t.key)}
     </svg>`;
+      PIN_CACHE.set(t.key, s);
+    }
+    return s;
   }
 
   function buildMarkerEl(mapId, m) {
@@ -627,6 +638,10 @@
     el.className = 'mk';
     el.dataset.key = key;
     el.style.setProperty('--c', t.color);
+    /* 世界坐标一次性定位（性能架构）：父层 scale 换算到屏幕位置，
+       图标视觉尺寸由 .mk 的反向缩放保持恒定，之后无需再动 */
+    el.style.left = m.x + 'px';
+    el.style.top = m.y + 'px';
     el.setAttribute('aria-label', `${t.name} #${m.n}`);
     el.innerHTML = `<span class="mk-pin">${pinSvg(t)}</span>
       <span class="mk-badge b-todo">+</span><span class="mk-badge b-done">✓</span>`;
@@ -636,7 +651,7 @@
       if (e.ctrlKey || e.metaKey) { toggleMulti(key); return; }
       selectMarker(mapId, m);
     });
-    return { x: m.x, y: m.y, el, key, m, mapId };
+    return { x: m.x, y: m.y, el, key, m, mapId, _inDom: false };
   }
 
   function passFilter(m) {
@@ -648,31 +663,77 @@
     return true;
   }
 
+  /* 标记 DOM 池（性能架构）：每个图层的标记元素只构建一次，按图层分桶缓存。
+     筛选/状态变更只 toggle .is-hidden 与状态类，不再销毁重建；
+     切回已访问过的图层直接复用整批元素。
+     ⚠ 桶 key 必须是 layer.id 而不是 layer.map：蒙德/须弥等地表层共用地图 2，
+       按 map 分桶会让切区域时旧层元素残留（DOM 越积越多）。 */
+  const MARKER_POOL = new Map();   // layerId -> Map<key, rec>
+
   function renderMarkers() {
     const layer = currentLayer();
     const mapId = layer.map;
+    const layerKey = layer.id || (mapId + ':' + layer.area);
+    /* 换层：旧层元素即将被 setMarkers 清出 DOM，重置其 _inDom 标记 */
+    if (App._poolMapId !== layerKey) {
+      if (App._poolMapId != null) {
+        const old = MARKER_POOL.get(App._poolMapId);
+        if (old) old.forEach((rec) => { rec._inDom = false; });
+      }
+      App._poolMapId = layerKey;
+    }
+
     const src = layerMarkers(layer).map((m) => {
       m.__key = mapId + ':' + m.i;
       return m;
     });
-    const visible = src.filter(passFilter);
-    App.visibleList = visible.map((m) => ({ mapId, m }));
-    const recs = visible.map((m) => buildMarkerEl(mapId, m));
+    let bucket = MARKER_POOL.get(layerKey);
+    if (!bucket) { bucket = new Map(); MARKER_POOL.set(layerKey, bucket); }
+    const frag = document.createDocumentFragment();
+    const recs = [];
+    for (const m of src) {
+      let rec = bucket.get(m.__key);
+      if (!rec) {
+        rec = buildMarkerEl(mapId, m);
+        bucket.set(m.__key, rec);
+      } else {
+        rec.m = m;                       // atlas 覆盖等数据可能已刷新
+        rec.x = m.x; rec.y = m.y;
+      }
+      if (!rec._inDom) { frag.appendChild(rec.el); rec._inDom = true; }
+      recs.push(rec);
+    }
+    App.map.setMarkers(recs, layerKey, frag);
+
     App.els.clear();
     App.markerByKey.clear();
     recs.forEach((r) => { App.els.set(r.key, r.el); App.markerByKey.set(r.key, r.m); });
-    App.map.setMarkers(recs);
+
+    /* 可见性：只 toggle is-hidden，不重建 DOM */
+    const visible = [];
+    for (const r of recs) {
+      const ok = passFilter(r.m);
+      r.el.classList.toggle('is-hidden', !ok);
+      if (ok) visible.push({ mapId, m: r.m });
+    }
+    App.visibleList = visible;
     applyMarkerStates();
     renderLegend(mapId, src);
     if (Route.on) { applyRouteBadges(); routeFrame(); }
   }
 
   function applyMarkerStates() {
+    const selKey = App.state.selKey;
     App.els.forEach((el, key) => {
-      el.classList.toggle('is-done', App.done.has(key));
-      el.classList.toggle('is-todo', App.todo.has(key));
-      el.classList.toggle('is-active', App.state.selKey === key);
-      el.classList.toggle('is-multi', App.multi.has(key));
+      const sig = (App.done.has(key) ? 1 : 0) | (App.todo.has(key) ? 2 : 0)
+        | (selKey === key ? 4 : 0) | (App.multi.has(key) ? 8 : 0);
+      /* 增量：签名没变的元素跳过（勾选一个点只写 2 个元素的类，不再全量 4×toggle） */
+      if (App._stateSig.get(key) === sig) return;
+      App._stateSig.set(key, sig);
+      el.classList.toggle('is-done', !!(sig & 1));
+      el.classList.toggle('is-todo', !!(sig & 2));
+      el.classList.toggle('is-active', !!(sig & 4));
+      el.classList.toggle('is-multi', !!(sig & 8));
     });
   }
 
@@ -1156,6 +1217,33 @@
 
   function openDetail(mapId, m) {
     const key = mapId + ':' + m.i;
+    const panelOpen = $('#detailPanel');
+    /* M5 增量：同一标记的重开（通常是刚点了采集/待采集后刷新）只更新
+       状态标签与两个按钮，不重新解析整个面板的 innerHTML */
+    if (App._detailKey === key && panelOpen.classList.contains('is-open')) {
+      const isDone0 = App.done.has(key);
+      const isTodo0 = App.todo.has(key);
+      const st = document.getElementById('detailState');
+      if (st) {
+        st.innerHTML = (isDone0 ? '<span class="tag t-done">已采集</span>'
+          : isTodo0 ? '<span class="tag t-todo">待采集</span>' : '<span class="tag t-none">未采集</span>')
+          + (m.z > 0 ? `<span class="tag t-depth">水下层级 ${m.z}</span>` : '');
+      }
+      const bTodo = panelOpen.querySelector('[data-act="todo"]');
+      if (bTodo) {
+        bTodo.classList.toggle('is-on', isTodo0);
+        bTodo.textContent = isTodo0 ? '移出待采集' : '加入待采集';
+        if (isDone0 && !isTodo0) { bTodo.disabled = true; bTodo.title = '已采集的神瞳无需加入待采集'; }
+        else { bTodo.disabled = false; bTodo.removeAttribute('title'); }
+      }
+      const bDone = panelOpen.querySelector('[data-act="done"]');
+      if (bDone) {
+        bDone.classList.toggle('is-on', isDone0);
+        bDone.textContent = isDone0 ? '取消已采集' : '标记已采集';
+      }
+      return;
+    }
+    App._detailKey = key;
     const t = App.types[m.t];
     const rid = regionOf(mapId, m);
     const region = regionById(rid);

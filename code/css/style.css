@@ -244,19 +244,35 @@ svg{display:block}
 }
 .tile-layer img.is-missing{opacity:0}
 
-.map-markers{position:absolute;inset:0;z-index:10;pointer-events:none}
+/* 标记层与世界层共用同一 transform（性能架构）：一次父变换带动全部标记。
+   will-change 只给这一层用是恰当的（真正每帧变化的唯一元素）；
+   逐标记的 will-change 已删除——几百个常驻合成层会拖垮合成器。 */
+.map-markers{
+  position:absolute;inset:0;z-index:10;pointer-events:none;
+  transform-origin:0 0;will-change:transform;
+}
+/* 反向缩放：标记层的 scale(s) 会被 .mk 的 scale(1/s) 抵消，
+   图标视觉尺寸恒定（与旧实现一致）；内部 translate(-15,-38) 因此
+   也按「屏幕像素」生效（锚点：图钉尖端对准点位）。
+   contain 替代逐标记 will-change：隔离布局/样式重算范围，不强行开图层。 */
 .mk{
   position:absolute;left:0;top:0;width:30px;height:38px;
-  pointer-events:auto;transform:translate3d(-999px,-999px,0);
-  will-change:transform;transition:opacity .18s;
+  pointer-events:auto;
+  transform-origin:0 0;
+  transform:scale(calc(1 / var(--s,1))) translate(-15px,-38px);
+  contain:layout style;
+  transition:opacity .18s;
 }
 .mk-pin{
   position:absolute;left:0;top:0;width:30px;height:38px;
-  filter:drop-shadow(0 3px 5px rgba(15,30,34,.32));
   transition:transform .16s cubic-bezier(.2,.9,.3,1.4);
   transform-origin:50% 100%;
   transform:scale(var(--k,1));
 }
+/* 静态态不再跑模糊滤镜（数百标记 × drop-shadow 模糊 pass 是合成大头）；
+   阴影只给真正交互中的单个标记（hover/active，数量=1） */
+.mk:hover .mk-pin{filter:drop-shadow(0 3px 5px rgba(15,30,34,.32))}
+.mk.is-active .mk-pin{filter:drop-shadow(0 3px 5px rgba(15,30,34,.32))}
 .mk-pin svg{width:100%;height:100%;overflow:visible}
 .mk:hover .mk-pin{transform:scale(calc(var(--k,1) * 1.16)) translateY(-1px);z-index:3}
 .mk.is-active .mk-pin{transform:scale(calc(var(--k,1) * 1.22)) translateY(-2px);z-index:4}
@@ -281,18 +297,21 @@ svg{display:block}
 .mk-badge.b-done{background:linear-gradient(180deg,#5d8f7d,#3c6a5c)}
 .mk.is-todo .mk-badge.b-todo{opacity:1;transform:none}
 .mk.is-done .mk-badge.b-done{opacity:1;transform:none}
-.mk.is-done .mk-pin{filter:grayscale(1) opacity(.62) drop-shadow(0 2px 3px rgba(15,30,34,.2))}
-.mk.is-done.is-active .mk-pin{filter:grayscale(1) opacity(.85)}
+.mk.is-done .mk-pin{filter:grayscale(1);opacity:.62}
+.mk.is-done.is-active .mk-pin{filter:grayscale(1) drop-shadow(0 3px 5px rgba(15,30,34,.32));opacity:.85}
 .mk.is-hidden{display:none}
 .mk.is-new .mk-pin{animation:mkDrop .45s cubic-bezier(.24,1.2,.36,1) both}
 @keyframes mkDrop{from{transform:translateY(-10px) scale(.7);opacity:0}to{transform:none;opacity:1}}
 .mk.is-zoomed{transform-origin:50% 100%}
 
-/* 多选：被框选/画笔/Ctrl 点中的标记换成深色描边 + 外发光，
-   与「已选中打开详情」的脉冲圈区分开（原来画在图标下面的圆环会被图标挡住看不清） */
+/* 多选：被框选/画笔/Ctrl 点中的标记换成金色描边；
+   静态态只留描边（框选可能一次选中几百个，静态发光 = 几百个模糊 pass），
+   金色外发光只在 hover/active 的单个标记上出现 */
 .mk.is-multi .mk-pin svg > path:first-child{stroke:#ffb020;stroke-width:3.2}
-.mk.is-multi .mk-pin{filter:drop-shadow(0 0 5px rgba(255,176,32,.95)) drop-shadow(0 0 11px rgba(255,176,32,.55))}
-.mk.is-multi.is-done .mk-pin{
+.mk.is-multi:hover .mk-pin,
+.mk.is-multi.is-active .mk-pin{filter:drop-shadow(0 0 5px rgba(255,176,32,.95)) drop-shadow(0 0 11px rgba(255,176,32,.55))}
+.mk.is-multi.is-done:hover .mk-pin,
+.mk.is-multi.is-done.is-active .mk-pin{
   filter:grayscale(.5) opacity(.9) drop-shadow(0 0 5px rgba(255,176,32,.9)) drop-shadow(0 0 11px rgba(255,176,32,.5));
 }
 .mk.is-multi::before{
@@ -971,6 +990,9 @@ svg{display:block}
 }
 .rail-actions .btn{flex:1 1 auto;justify-content:center;font-size:11.5px}
 #btnLegendRail{display:none}
+/* 安装按钮在普通文档流（rail-tip 末尾）：sticky 动作区里的按钮显示时会把
+   sticky 块撑高一行，盖住滚动区底部的筛选复选框（真实 bug，已修） */
+#btnInstallRail{margin-top:10px;width:100%;justify-content:center}
 
 @media (max-width:960px){
   #btnLegend{display:none}

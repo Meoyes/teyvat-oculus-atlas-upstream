@@ -96,6 +96,30 @@
    "codeRemoved": [],
    "bytes": 0,
    "codeBytes": 196250
+  },
+  {
+   "version": "2026.11.01.5",
+   "at": "2026-11-01T12:11+08:00",
+   "title": "界面与功能更新",
+   "tags": [
+    "性能",
+    "界面"
+   ],
+   "note": "性能重构：标记随世界一次变换（删每帧逐标记循环与 will-change）、renderMarkers DOM 池复用、pinSvg 缓存、viewport rect 缓存、静态态去模糊滤镜、字体 SW 运行时缓存、安装按钮移出 sticky 区",
+   "summary": "代码 4",
+   "added": [],
+   "changed": [],
+   "removed": [],
+   "codeAdded": [],
+   "codeChanged": [
+    "css/style.css",
+    "index.html",
+    "js/app.js",
+    "js/map.js"
+   ],
+   "codeRemoved": [],
+   "bytes": 0,
+   "codeBytes": 246366
   }
  ]
 }

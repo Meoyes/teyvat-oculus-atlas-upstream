@@ -31,6 +31,10 @@
       this._pinch = null;
       this._readyOnce = false;
       this._moved = 0;
+      /* 性能：viewport 偏移缓存（resize/scroll 时刷新），手势热路径不再强制布局 */
+      this._vpLeft = 0; this._vpTop = 0;
+      this._markerMapId = null;   /* 当前已挂载标记所属的地图（DOM 池复用） */
+      this._sr = '';              /* 上次写入 --s 的值（避免每帧 setProperty） */
       /* 框选 / 画笔选择：选区画在屏幕坐标层，位于标记之下（不遮挡标记） */
       this.selectMode = null;   // 'rect' | 'brush' | null
       this._sel = null;
@@ -53,6 +57,8 @@
       const r = this.viewport.getBoundingClientRect();
       this.w = Math.max(1, r.width);
       this.h = Math.max(1, r.height);
+      this._vpLeft = r.left;
+      this._vpTop = r.top;
       if (this.meta) {
         this._limits();
         this._clampView();
@@ -79,16 +85,17 @@
       this._limits();
     }
 
-    setMarkers(list) {
-      this.markers = [];
-      this.markerLayer.innerHTML = '';
-      const frag = document.createDocumentFragment();
-      for (const m of list) {
-        m.shown = true;
-        frag.appendChild(m.el);
-        this.markers.push(m);
+    /* 标记 DOM 由 app.js 的池管理（构建一次、复用）：
+       - recs：本层全部标记（含被筛选隐藏的）
+       - layerKey：所属图层标识（⚠ 不是地图 id——蒙德/须弥地表共用地图 2）
+       - frag：本层新建、尚未入 DOM 的元素碎片（可直接为空） */
+    setMarkers(recs, layerKey, frag) {
+      if (this._markerMapId !== layerKey) {
+        this.markerLayer.innerHTML = '';
+        this._markerMapId = layerKey;
       }
-      this.markerLayer.appendChild(frag);
+      if (frag && frag.childNodes.length) this.markerLayer.appendChild(frag);
+      this.markers = recs;
       this._frame();
     }
 
@@ -297,7 +304,18 @@
       const s = Math.pow(2, this.zoom);
       const tx = this.w / 2 - this.cx * s;
       const ty = this.h / 2 - this.cy * s;
-      this.world.style.transform = `translate3d(${tx.toFixed(2)}px,${ty.toFixed(2)}px,0) scale(${s.toFixed(5)})`;
+      const tf = `translate3d(${tx.toFixed(2)}px,${ty.toFixed(2)}px,0) scale(${s.toFixed(5)})`;
+      this.world.style.transform = tf;
+      /* 标记层与世界共用同一变换：平移/缩放由「一次」父 transform 带动，
+         不再逐标记重定位（旧实现每帧 N 次字符串拼接 + 样式写入）。
+         数学对齐：标记 left/top 为世界坐标，屏幕位置 = tx + s*m.x = (m.x-cx)*s + w/2，与旧公式一致；
+         图标视觉尺寸由 .mk 的 scale(1/--s) 反向抵消（见 style.css）。 */
+      this.markerLayer.style.transform = tf;
+      const sr = s.toFixed(5);
+      if (this._sr !== sr) {
+        this._sr = sr;
+        this.markerLayer.style.setProperty('--s', sr);
+      }
 
       // 标记随缩放整体缩放（密度自适应）
       const k = clamp(0.62 + (this.zoom - this.meta.baseZ - 0.9) * 0.38, 0.62, 1);
@@ -306,20 +324,28 @@
         this._k = kr;
         this.markerLayer.style.setProperty('--k', kr);
       }
+
+      /* 视口剔除：只切 visibility，稳态零样式写入（边界翻转才写） */
+      const cx = this.cx, cy = this.cy, w = this.w, h = this.h;
       for (const m of this.markers) {
-        const sx = (m.x - this.cx) * s + this.w / 2;
-        const sy = (m.y - this.cy) * s + this.h / 2;
-        if (sx < -70 || sy < -90 || sx > this.w + 70 || sy > this.h + 90) {
+        const sx = (m.x - cx) * s + w / 2;
+        const sy = (m.y - cy) * s + h / 2;
+        if (sx < -70 || sy < -90 || sx > w + 70 || sy > h + 90) {
           if (m.shown) { m.el.style.visibility = 'hidden'; m.shown = false; }
-        } else {
-          if (!m.shown) { m.el.style.visibility = ''; m.shown = true; }
-          m.el.style.transform = `translate3d(${(sx - 15).toFixed(1)}px,${(sy - 38).toFixed(1)}px,0)`;
+        } else if (!m.shown) {
+          m.el.style.visibility = '';
+          m.shown = true;
         }
       }
       this._tiles();
-      /* 静止 260ms 后预热视口外两圈瓦片：拖动时才不会一片空白 */
-      clearTimeout(this._warmT);
-      this._warmT = setTimeout(() => this._warm(), 260);
+      /* 预热视口外两圈瓦片：改在浏览器空闲时跑（旧实现每帧重建 setTimeout），
+         不挤占手势帧；timeout 兜底保证持续拖动时也有机会预热 */
+      if (!this._warmPending) {
+        this._warmPending = true;
+        const kick = () => { this._warmPending = false; this._warm(); };
+        if (typeof requestIdleCallback === 'function') requestIdleCallback(kick, { timeout: 400 });
+        else setTimeout(kick, 260);
+      }
       if (this.onFrame) this.onFrame();
     }
 
@@ -491,6 +517,13 @@
       vp.addEventListener('wheel', (e) => this._wheel(e), { passive: false });
       vp.addEventListener('dblclick', (e) => this._dbl(e));
       vp.addEventListener('contextmenu', (e) => e.preventDefault());
+      /* 页面滚动会改变 viewport 的视口位置（尺寸不变，ResizeObserver 不触发）：
+         滚动时布局是干净的，这里补一次 rect 缓存很便宜 */
+      window.addEventListener('scroll', () => {
+        const r = this.viewport.getBoundingClientRect();
+        this._vpLeft = r.left;
+        this._vpTop = r.top;
+      }, { passive: true });
       // 拖拽后抑制误点击
       vp.addEventListener('click', (e) => {
         if (this._moved > 10) { e.stopPropagation(); e.preventDefault(); }
@@ -535,9 +568,10 @@
       if (this._pointers.size >= 2 && this._pinch) {
         const [a, b] = Array.from(this._pointers.values());
         const dist = Math.hypot(a.x - b.x, a.y - b.y);
-        const rect = this.viewport.getBoundingClientRect();
-        const mx = (a.x + b.x) / 2 - rect.left;
-        const my = (a.y + b.y) / 2 - rect.top;
+        /* 用缓存的 viewport 偏移（_vpLeft/_vpTop）：双指事件每帧都来，
+           每次都 getBoundingClientRect 会强制同步布局（layout thrashing） */
+        const mx = (a.x + b.x) / 2 - this._vpLeft;
+        const my = (a.y + b.y) / 2 - this._vpTop;
         if (this._pinch.dist > 10) {
           const z = clamp(this._pinch.zoom + Math.log2(dist / this._pinch.dist), this.minZoom, this.maxZoom);
           this.zoomAt(z, mx, my);
@@ -578,17 +612,16 @@
 
     _wheel(e) {
       e.preventDefault();
-      const rect = this.viewport.getBoundingClientRect();
-      const px = e.clientX - rect.left;
-      const py = e.clientY - rect.top;
+      /* 缓存偏移：resize/scroll 时刷新（见 _bind），热路径不强制布局 */
+      const px = e.clientX - this._vpLeft;
+      const py = e.clientY - this._vpTop;
       const unit = e.deltaMode === 1 ? 0.05 : 0.0016;
       const dz = clamp(-e.deltaY * unit, -0.6, 0.6);
       this.zoomAt(this.zoom + dz, px, py);
     }
 
     _dbl(e) {
-      const rect = this.viewport.getBoundingClientRect();
-      this.zoomAt(this.zoom + 0.7, e.clientX - rect.left, e.clientY - rect.top);
+      this.zoomAt(this.zoom + 0.7, e.clientX - this._vpLeft, e.clientY - this._vpTop);
     }
   }
 
