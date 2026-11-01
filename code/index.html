@@ -79,7 +79,7 @@ try {
 <link rel="preconnect" href="https://act.hoyoverse.com" crossorigin>
 <link rel="stylesheet" media="print" onload="this.media='all'"
       href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@500;600;700&family=Noto+Sans+SC:wght@400;500;600&display=swap" data-page-node-id="06SAskCDp0jLwQSy4Fu6sa">
-<link rel="stylesheet" href="css/style.css?v=20261031-16" data-page-node-id="QF6wrlSleLz5L9tHvrxGnO">
+<link rel="stylesheet" href="css/style.css?v=20261031-17" data-page-node-id="QF6wrlSleLz5L9tHvrxGnO">
 </head>
 <body data-page-node-id="wkhfDViUHYSgCoYBh7AGGC">
 <div id="app" data-page-node-id="gBPaI7hqV7frQwkCpS5sCZ">
@@ -164,6 +164,11 @@ try {
             <input type="checkbox" id="hideDone" data-page-node-id="GsNGEvGhPErsGB5XMi3Ava">
             <span class="switch-track" data-page-node-id="xHbSEeI5EqLozieNxNC1jA"><span class="switch-dot" data-page-node-id="XkAMoUGqgPeF9xTs8ytDsW"></span></span>
             <span data-page-node-id="Op1MpO3s4H3igPsbpZOEx9">隐藏已采集</span>
+          </label>
+          <label class="switch">
+            <input type="checkbox" id="onlyTodo">
+            <span class="switch-track"><span class="switch-dot"></span></span>
+            <span>仅显示待采集</span>
           </label>
           <label class="switch" id="depthWrap" hidden data-page-node-id="Lq2KcpsVdtByhBkhE1FeMW">
             <input type="checkbox" id="depthOnly" data-page-node-id="1kUQuoAIrB4xOPCvYtAHs4">
@@ -277,8 +282,8 @@ try {
 
         <div class="sel-bar" id="selBar" hidden>
           <span class="sel-count" id="selCount">已选 0 个</span>
-          <button type="button" data-act="sel-done">标记已采集</button>
-          <button type="button" data-act="sel-undo">取消采集</button>
+          <button type="button" data-act="sel-done" data-selstate="mark">标记已采集</button>
+          <button type="button" data-act="sel-todo" data-selstate="add">添加到待采集</button>
           <button type="button" data-act="sel-clear">清空</button>
           <button type="button" class="sel-exit" data-act="sel-exit" aria-label="退出选择模式" title="退出选择模式">
             <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg>
@@ -404,11 +409,11 @@ try {
 
 <div class="toast" id="toast" role="status" aria-live="polite" data-page-node-id="PEMuTHEDeSyJahCxkahCcL"></div>
 
-<script src="js/cloud-config.js?v=20261031-16"></script>
-<script src="js/cloud-own.js?v=20261031-16"></script>
-<script src="js/lib.js?v=20261031-16"></script>
-<script src="js/map.js?v=20261031-16"></script>
-<script src="js/upstream.js?v=20261031-16"></script>
-<script src="js/app.js?v=20261031-16"></script>
+<script src="js/cloud-config.js?v=20261031-17"></script>
+<script src="js/cloud-own.js?v=20261031-17"></script>
+<script src="js/lib.js?v=20261031-17"></script>
+<script src="js/map.js?v=20261031-17"></script>
+<script src="js/upstream.js?v=20261031-17"></script>
+<script src="js/app.js?v=20261031-17"></script>
 </body>
 </html>

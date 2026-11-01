@@ -861,6 +861,8 @@ svg{display:block}
 .map-viewport.is-select .mk{cursor:pointer}
 .map-tools button.is-on{background:var(--teal);color:#fff}
 .map-tools button.is-on:hover{background:var(--teal);color:#fff;opacity:.88}
+[data-theme="dark"] .map-tools button.is-on{background:#5eb3a6;color:#08262b}
+[data-theme="dark"] .map-tools button.is-on:hover{background:#74c7b9;color:#08262b;opacity:1}
 
 /* 多选操作条 */
 .sel-bar{
@@ -875,17 +877,34 @@ svg{display:block}
 .sel-bar[hidden]{display:none}
 .sel-count{font-family:var(--font-mono);font-size:11.5px;color:var(--teal);margin-right:2px}
 .sel-bar button{
-  padding:6px 10px;border-radius:8px;font-size:11.5px;line-height:1.2;
+  padding:6px 10px;min-height:30px;border-radius:8px;font-size:11.5px;line-height:1.2;
   background:rgba(22,74,81,.08);color:var(--ink-2);transition:.15s;
 }
 .sel-bar button:hover:not(:disabled){background:rgba(22,74,81,.16);color:var(--teal)}
 .sel-bar button:disabled{opacity:.35;cursor:default}
+/* 主操作按钮（标记已采集/取消采集）：实底，更醒目 */
+.sel-bar [data-act="sel-done"]{background:var(--teal-2);color:#fff;font-weight:600}
+.sel-bar [data-act="sel-done"]:hover:not(:disabled){background:var(--teal);color:#fff;opacity:.94}
 .sel-bar .sel-exit{width:28px;height:28px;padding:0;display:flex;align-items:center;justify-content:center;background:transparent;color:var(--ink-3)}
 .sel-bar .sel-exit:hover{background:rgba(22,74,81,.12)}
 .sel-bar .sel-exit svg{width:14px;height:14px}
+/* 深色主题：浮层换深底，按钮换成亮底深字，保证对比度 */
+[data-theme="dark"] .sel-bar{
+  background:rgba(20,31,35,.96);
+  border-color:rgba(234,230,218,.16);
+  box-shadow:0 10px 26px rgba(0,0,0,.55);
+  color:#c9d6d3;
+}
+[data-theme="dark"] .sel-count{color:#8fd0c3}
+[data-theme="dark"] .sel-bar button{background:rgba(234,230,218,.12);color:#e8f0ee}
+[data-theme="dark"] .sel-bar button:hover:not(:disabled){background:rgba(234,230,218,.2);color:#fff}
+[data-theme="dark"] .sel-bar [data-act="sel-done"]{background:#5eb3a6;color:#08262b;font-weight:600}
+[data-theme="dark"] .sel-bar [data-act="sel-done"]:hover:not(:disabled){background:#74c7b9;color:#08262b;opacity:1}
+[data-theme="dark"] .sel-bar .sel-exit{color:#8fa3a0}
+[data-theme="dark"] .sel-bar .sel-exit:hover{background:rgba(234,230,218,.12)}
 @media (max-width:960px){
   .sel-bar{left:8px;right:8px;bottom:64px;transform:none;flex-wrap:wrap;white-space:normal;justify-content:center}
-  .sel-bar button{padding:6px 8px}
+  .sel-bar button{padding:7px 12px;min-height:34px} /* 触摸目标 ≥ 34px */
 }
 .route-svg.is-on{display:block}
 .route-halo{fill:none;stroke:rgba(255,255,255,.92);stroke-width:6;stroke-linecap:round;stroke-linejoin:round;opacity:.55}

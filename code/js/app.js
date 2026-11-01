@@ -23,7 +23,7 @@
     markerByKey: new Map(),
     multi: new Set(),          // 框选/画笔/Ctrl 点选的多选集合（存 __key）
     selectMode: null,          // 'rect' | 'brush' | null
-    state: { regionId: null, layerId: null, filters: new Set(), hideDone: false, depthOnly: false, selKey: null },
+    state: { regionId: null, layerId: null, filters: new Set(), hideDone: false, onlyTodo: false, depthOnly: false, selKey: null },
     drawerTab: 'todo',
     map: null,
     els: new Map(),
@@ -637,6 +637,7 @@
     if (!App.state.filters.has(m.t)) return false;
     const key = m.__key;
     if (App.state.hideDone && App.done.has(key)) return false;
+    if (App.state.onlyTodo && !App.todo.has(key)) return false;
     if (App.state.depthOnly && !(m.z > 0)) return false;
     return true;
   }
@@ -689,6 +690,28 @@
     const c = $('#selCount');
     if (c) c.textContent = n ? `已选 ${n} 个` : '拖拽框选，或 Ctrl+点击';
     bar.classList.toggle('is-on', on);
+    /* 两个操作按钮按当前选中集合的状态动态切换语义：
+       - 已采/未采混合或全未采 → 「标记已采集」；全已采 → 「取消采集」
+       - 有可加入待采集的 → 「添加到待采集」；全部已在待采集 → 「移出待采集」 */
+    let doneCnt = 0, todoCnt = 0;
+    App.multi.forEach((k) => {
+      if (App.done.has(k)) doneCnt++;
+      if (App.todo.has(k)) todoCnt++;
+    });
+    const undone = n - doneCnt;
+    const addable = n - todoCnt - doneCnt; /* 未采集且未在待采集 */
+    const bDone = bar.querySelector('[data-act="sel-done"]');
+    if (bDone) {
+      const mark = undone > 0;
+      bDone.dataset.selstate = mark ? 'mark' : 'undo';
+      bDone.textContent = mark ? '标记已采集' : '取消采集';
+    }
+    const bTodo = bar.querySelector('[data-act="sel-todo"]');
+    if (bTodo) {
+      const add = addable > 0 || (todoCnt === 0 && doneCnt === n); /* 全已采也能加（同时取消已采集） */
+      bTodo.dataset.selstate = add ? 'add' : 'remove';
+      bTodo.textContent = add ? '添加到待采集' : '移出待采集';
+    }
     bar.querySelectorAll('[data-act^="sel-"]').forEach((b) => {
       const act = b.dataset.act;
       if (act === 'sel-clear' || act === 'sel-exit') return;
@@ -751,11 +774,32 @@
     );
   }
 
+  /* 批量加入/移出待采集（与单点 toggleTodo 同规则：加入时已采集的同时取消已采集） */
+  function bulkTodo(on) {
+    const keys = Array.from(App.multi);
+    if (!keys.length) return;
+    const prev = keys.map((k) => [k, App.done.has(k), App.todo.has(k)]);
+    let undid = 0;
+    keys.forEach((k) => {
+      if (on) {
+        App.todo.add(k);
+        if (App.done.has(k)) { App.done.delete(k); undid++; }
+      } else App.todo.delete(k);
+    });
+    afterBulk();
+    const msg = on
+      ? `已把 ${keys.length} 个加入待采集` + (undid ? `（同时取消 ${undid} 个的已采集）` : '')
+      : `已把 ${keys.length} 个移出待采集`;
+    undoToast(msg, () => { prev.forEach(([k, d, t]) => setKeyState(k, d, t)); afterBulk(); });
+  }
+
   function afterBulk() {
     saveStore();
     refreshStats();
-    if (App.state.hideDone) renderMarkers();
+    /* hideDone/onlyTodo 都会改变可见集合：批量标记后重算可见列表 */
+    if (App.state.hideDone || App.state.onlyTodo) renderMarkers();
     else applyMarkerStates();
+    syncSelBar(); /* 按钮语义跟随选中集合的状态变化 */
     if (isDrawerOpen()) renderDrawer();
     if (Route.on) planRoute({ fit: false, silent: true });
   }
@@ -819,6 +863,7 @@
     App.state.depthOnly = false;
     $('#depthOnly').checked = false;
     $('#hideDone').checked = App.state.hideDone;
+    $('#onlyTodo').checked = App.state.onlyTodo;
   }
 
   function loadLayer() {
@@ -1310,7 +1355,7 @@
   function afterToggle(key) {
     saveStore();
     refreshStats();
-    if (App.state.hideDone) renderMarkers();
+    if (App.state.hideDone || App.state.onlyTodo) renderMarkers();
     else applyMarkerStates();
     syncDetailButtons(key);
     if (isDrawerOpen()) renderDrawer();
@@ -2027,8 +2072,8 @@
         const b = e.target.closest && e.target.closest('[data-act]');
         if (!b) return;
         const act = b.dataset.act;
-        if (act === 'sel-done') bulkSetDone(true);
-        else if (act === 'sel-undo') bulkSetDone(false);
+        if (act === 'sel-done') bulkSetDone(b.dataset.selstate !== 'undo');
+        else if (act === 'sel-todo') bulkTodo(b.dataset.selstate !== 'remove');
         else if (act === 'sel-clear') clearMulti();
         else if (act === 'sel-exit') { clearMulti(); setSelectMode(null); }
       });
@@ -2075,6 +2120,11 @@
     });
     $('#hideDone').addEventListener('change', (e) => {
       App.state.hideDone = e.target.checked;
+      renderMarkers();
+      if (Route.on) planRoute({ fit: false, silent: true });
+    });
+    $('#onlyTodo').addEventListener('change', (e) => {
+      App.state.onlyTodo = e.target.checked;
       renderMarkers();
       if (Route.on) planRoute({ fit: false, silent: true });
     });

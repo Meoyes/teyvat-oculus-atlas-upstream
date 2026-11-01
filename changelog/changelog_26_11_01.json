@@ -26,6 +26,29 @@
    "codeRemoved": [],
    "bytes": 81,
    "codeBytes": 226672
+  },
+  {
+   "version": "2026.11.01.2",
+   "at": "2026-11-01T08:19+08:00",
+   "title": "界面与功能更新",
+   "tags": [
+    "界面",
+    "工具"
+   ],
+   "note": "操作条精简：合并已采集按钮为动态切换；新增添加到待采集；深色模式适配；筛选新增仅显示待采集",
+   "summary": "代码 3",
+   "added": [],
+   "changed": [],
+   "removed": [],
+   "codeAdded": [],
+   "codeChanged": [
+    "css/style.css",
+    "index.html",
+    "js/app.js"
+   ],
+   "codeRemoved": [],
+   "bytes": 0,
+   "codeBytes": 208230
   }
  ]
 }
