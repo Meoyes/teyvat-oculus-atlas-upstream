@@ -1374,13 +1374,16 @@
         else { totalSp++; if (App.done.has(key)) doneSp++; }
       });
     });
-    const pct = totalOc ? Math.round(doneOc / totalOc * 100) : 0;
+    const totalAll = totalOc + totalSp, doneAll = doneOc + doneSp;
+    const pct = totalAll ? Math.round(doneAll / totalAll * 100) : 0;
     $('#globalStats').innerHTML = `
-      <div class="stat"><b>${fmt(doneOc)}</b><span>已采集神瞳 / ${fmt(totalOc)}</span></div>
+      <div class="stat"><b>${fmt(doneAll)}</b><span>已采集 / ${fmt(totalAll)}</span></div>
       <div class="divider"></div>
       <div class="stat"><b>${pct}%</b><span>总进度</span></div>
       <div class="divider"></div>
       <div class="stat"><b>${fmt(App.todo.size)}</b><span>待采集</span></div>
+      <div class="divider"></div>
+      <div class="stat"><b>${fmt(doneOc)}</b><span>神瞳 / ${fmt(totalOc)}</span></div>
       <div class="divider"></div>
       <div class="stat"><b>${fmt(doneSp)}</b><span>特殊收集物 / ${fmt(totalSp)}</span></div>
       <button type="button" class="stat-more" data-act="progress">进度详情</button>`;
@@ -1438,14 +1441,21 @@
       if (t.kind === 'oculus') { ocD += v.done; ocT += v.total; }
       else { spD += v.done; spT += v.total; }
     }));
-    const pct = ocT ? Math.round(ocD / ocT * 100) : 0;
+    const pctStr = (d, t) => {
+      if (!t) return '0%';
+      const p = d / t * 100;
+      return (p > 0 && p < 1) ? p.toFixed(1) + '%' : Math.round(p) + '%';
+    };
+    const allD = ocD + spD, allT = ocT + spT;
+    const pct = allT ? Math.round(allD / allT * 100) : 0;
     let html = `<div class="pg-sum">
-      <div class="pg-sum-top"><b>${fmt(ocD)}</b><span>/ ${fmt(ocT)} 枚神瞳</span><em>${pct}%</em></div>
+      <div class="pg-sum-top"><b>${fmt(allD)}</b><span>/ ${fmt(allT)} 枚收集物</span><em>${pctStr(allD, allT)}</em></div>
       <div class="pg-bar"><i style="width:${pct}%"></i></div>
       <div class="pg-sum-sub">
+        <span>神瞳 <b>${fmt(ocD)}</b> / ${fmt(ocT)}</span>
         <span>特殊收集物 <b>${fmt(spD)}</b> / ${fmt(spT)}</span>
         <span>待采集 <b>${fmt(App.todo.size)}</b></span>
-        <span>已采集合计 <b>${fmt(App.done.size)}</b></span>
+        <span>已采集合计 <b>${fmt(allD)}</b></span>
       </div>
     </div>`;
 

@@ -49,6 +49,28 @@
    "codeRemoved": [],
    "bytes": 0,
    "codeBytes": 208230
+  },
+  {
+   "version": "2026.11.01.3",
+   "at": "2026-11-01T08:36+08:00",
+   "title": "界面与功能更新",
+   "tags": [
+    "统计",
+    "界面"
+   ],
+   "note": "统计口径统一：顶栏与进度总览主进度改为全部收集物（神瞳+特殊），<1% 显示一位小数",
+   "summary": "代码 2",
+   "added": [],
+   "changed": [],
+   "removed": [],
+   "codeAdded": [],
+   "codeChanged": [
+    "index.html",
+    "js/app.js"
+   ],
+   "codeRemoved": [],
+   "bytes": 0,
+   "codeBytes": 135774
   }
  ]
 }
