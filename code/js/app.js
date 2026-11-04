@@ -151,6 +151,8 @@
     refreshStats();
 
     initCloud();
+    /* 邮件里的 #verify= / #reset= 链接：启动即处理 */
+    handleAuthLink();
   }
 
   // 上游补全某个地图的数据后，就地重建该地图的标记与索引
@@ -2366,6 +2368,15 @@
     if (signed) {
       const u = $('#acctUser');
       if (u) u.textContent = CloudUI.name || '已登录';
+      /* 邮箱验证状态（渐进式：未验证只提示，不影响登录与同步） */
+      const vBox = $('#acctVerify');
+      if (vBox) {
+        const obj = acctUserObj() || {};
+        const verified = Number(obj.email_verified) === 1 || obj.email_verified === true;
+        vBox.hidden = verified;
+        const vb = $('#btnVerifyMail');
+        if (vb && !vb.disabled) vb.textContent = '发送验证邮件';
+      }
       const st = $('#acctState');
       if (st) {
         if (CloudUI.syncing) st.textContent = '正在同步…';
@@ -2572,8 +2583,105 @@
     });
   }
 
-  function resetAcctForm() {
-    const form = $('#acctForm');
+  /* ------------------------------------------------ 邮件链接落地
+     #verify=<token> → 直接完成邮箱验证
+     #reset=<token>  → 弹窗设置新密码
+     token 一进页面就从地址栏抹掉：避免留在浏览历史 / 被截图带出去 */
+  let pendingResetToken = null;
+
+  function openResetModal(token) {
+    pendingResetToken = token || null;
+    const box = $('#authResetModal');
+    if (!box) return;
+    box.hidden = false;
+    box.setAttribute('aria-hidden', 'false');
+    const msg = $('#authResetMsg');
+    if (msg) { msg.hidden = true; msg.textContent = ''; msg.classList.remove('is-ok'); }
+    ['#authResetNew', '#authResetNew2'].forEach((s) => { const el = $(s); if (el) el.value = ''; });
+    setTimeout(() => { const el = $('#authResetNew'); if (el) el.focus({ preventScroll: true }); }, 80);
+  }
+
+  function closeResetModal() {
+    const box = $('#authResetModal');
+    if (box) { box.hidden = true; box.setAttribute('aria-hidden', 'true'); }
+    pendingResetToken = null;
+  }
+
+  async function submitAuthReset() {
+    const msg = $('#authResetMsg');
+    const btn = $('#btnAuthResetSubmit');
+    const fail = (text) => {
+      if (msg) { msg.hidden = false; msg.classList.remove('is-ok'); msg.textContent = text; }
+    };
+    const np = (($('#authResetNew') || {}).value || '');
+    const np2 = (($('#authResetNew2') || {}).value || '');
+    if (String(np).length < 8) { fail('新密码至少 8 位'); return; }
+    if (np !== np2) { fail('两次输入的密码不一致'); return; }
+    if (!pendingResetToken) { fail('链接已失效，请回到账号面板重新申请重置邮件'); return; }
+    const C = window.GEL_CLOUD;
+    if (!C || !C.enabled) { fail('云服务暂不可用，请稍后重试'); return; }
+    btn.disabled = true;
+    try {
+      const r = await C.resetPasswordWithToken({ token: pendingResetToken, newPassword: np });
+      CloudUI.user = r.session || (await C.currentSession());
+      CloudUI.name = C.userName();
+      CloudUI.status = 'ok';
+      CloudUI.lastSync = Date.now();
+      if (msg) { msg.hidden = false; msg.classList.add('is-ok'); msg.textContent = '密码已重置，正在同步进度…'; }
+      closeResetModal();
+      renderAccount();
+      toast('密码已重置并自动登录', { duration: 5000 });
+      if (r.recoveryCode) acctMsg('【请保存新恢复码】 ' + r.recoveryCode + ' —— 旧恢复码已作废，只显示这一次。');
+      await syncOnSignIn();
+    } catch (e) {
+      fail((e && e.message) || '重置失败，链接可能已过期');
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  function bindAuthModal() {
+    const box = $('#authResetModal');
+    if (!box || box.dataset.bound === '1') return;
+    box.dataset.bound = '1';
+    const cancel = $('#btnAuthResetCancel');
+    const submit = $('#btnAuthResetSubmit');
+    if (cancel) cancel.addEventListener('click', closeResetModal);
+    if (submit) submit.addEventListener('click', submitAuthReset);
+    ['#authResetNew', '#authResetNew2'].forEach((s) => {
+      const el = $(s);
+      if (el) el.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); submitAuthReset(); }
+      });
+    });
+    box.addEventListener('click', (e) => { if (e.target === box) closeResetModal(); });
+  }
+
+  async function handleAuthLink() {
+    bindAuthModal();
+    const C = window.GEL_CLOUD;
+    const m = /^#(verify|reset)=([A-Za-z0-9_-]{8,200})$/.exec(String(location.hash || ''));
+    if (!m) return;
+    const kind = m[1];
+    const token = m[2];
+    try { history.replaceState(null, '', location.pathname + location.search); }
+    catch (e) { location.hash = ''; }
+
+    if (!C || !C.enabled) { toast('云服务暂不可用，请稍后再试', { duration: 6000 }); return; }
+    if (kind === 'reset') { openResetModal(token); return; }
+
+    try {
+      await C.confirmEmail({ token });
+      CloudUI.user = (await C.currentSession()) || CloudUI.user;
+      renderAccount();
+      acctMsg('邮箱验证成功', 'ok');
+      toast('邮箱验证成功，忘记密码现在可以走邮件了', { duration: 6000 });
+    } catch (e) {
+      toast((e && e.message) || '验证失败，链接可能已过期', { duration: 7000 });
+    }
+  }
+
+  function resetAcctForm() {    const form = $('#acctForm');
     const showBtn = $('#btnShowLogin');
     if (form) form.hidden = true;
     if (showBtn) showBtn.hidden = false;
@@ -2585,16 +2693,17 @@
   }
 
   function switchAcctTab(tab) {
-    const isLogin = tab !== 'signup';
+    showAcctPane(tab === 'signup' ? '#acctPaneSignup' : '#acctPaneLogin');
+  }
+
+  /* 登录 / 注册 / 忘记密码 / 恢复码：四个面板互斥切换 */
+  function showAcctPane(sel) {
+    const panes = ['#acctPaneLogin', '#acctPaneSignup', '#acctPaneForgot', '#acctPaneReset'];
+    panes.forEach((s) => { const el = $(s); if (el) el.hidden = s !== sel; });
+    const isSignup = sel === '#acctPaneSignup';
     $$('.acct-tabs button').forEach((b) => {
-      b.classList.toggle('is-active', (b.dataset.atab === 'signup') !== isLogin);
+      b.classList.toggle('is-active', (b.dataset.atab === 'signup') === isSignup);
     });
-    const pane = isLogin ? $('#acctPaneLogin') : $('#acctPaneSignup');
-    const other = isLogin ? $('#acctPaneSignup') : $('#acctPaneLogin');
-    if (pane) pane.hidden = false;
-    if (other) other.hidden = true;
-    const resetPane = $('#acctPaneReset');
-    if (resetPane) resetPane.hidden = true;
     acctMsg('');
   }
 
@@ -2747,13 +2856,19 @@
         } else {
           acctMsg('正在注册…');
           const session = await C.signUp(email, pass, nameEl ? nameEl.value : '');
+          /* 验证邮件是注册时服务端自动发的，先取结果（afterAuth 会清表单） */
+          const vs = (C.lastVerifyInfo && C.lastVerifyInfo()) || null;
           await afterAuth(session, '注册成功，进度开始同步');
-          /* H4：恢复码只显示一次 —— 立刻明示用户保存 */
           const rc = C.lastRecoveryCode && C.lastRecoveryCode();
-          if (rc) {
-            acctMsg('【请保存恢复码】 ' + rc + ' —— 这是忘记密码时找回账号的唯一凭据，只显示这一次。');
-            toast('恢复码已生成，请在账号面板抄录保存', { duration: 6000 });
+          const parts = [];
+          if (vs && vs.ok) {
+            parts.push('验证邮件已发到 ' + email + '，点邮件里的链接即可完成验证（不验证也能正常使用）。');
+          } else if (vs && vs.note) {
+            parts.push('验证邮件没发出去（' + vs.note + '），稍后可在账号面板点「发送验证邮件」重试。');
           }
+          if (rc) parts.push('恢复码：' + rc + '（只显示这一次，忘记密码时可作为备用手段）');
+          if (parts.length) acctMsg(parts.join('　'), vs && vs.ok ? 'ok' : '');
+          toast(rc ? '注册成功。恢复码已生成，建议抄录保存' : '注册成功', { duration: 6000 });
         }
       } catch (e) {
         acctMsg((e && e.message) || '注册失败', 'err');
@@ -2795,28 +2910,84 @@
       toast('已退出登录，进度仍保存在本机');
     });
 
-    /* ---------------- H4：恢复码重置 / 改密 / 踢设备 ---------------- */
-    const btnShowReset = $('#btnShowReset');
+    /* ---------------- 忘记密码（邮件为主，恢复码备用） ---------------- */
+    const btnShowForgot = $('#btnShowForgot');
+    const btnHideForgot = $('#btnHideForgot');
+    const btnForgotToCode = $('#btnForgotToCode');
     const btnHideReset = $('#btnHideReset');
-    if (btnShowReset) btnShowReset.addEventListener('click', () => {
-      const lp = $('#acctPaneLogin');
-      const rp = $('#acctPaneReset');
-      if (lp) lp.hidden = true;
-      if (rp) {
-        rp.hidden = false;
-        const em = $('#acctResetEmail');
-        const le = $('#acctEmail');
-        if (em && le && !em.value) em.value = le.value;
-        setTimeout(() => { if (em) em.focus({ preventScroll: true }); }, 60);
-      }
-      acctMsg('');
+
+    function prefillEmail(targetSel) {
+      const from = $('#acctEmail') || $('#acctForgotEmail');
+      const to = $(targetSel);
+      if (from && to && !to.value) to.value = from.value.trim();
+      setTimeout(() => { if (to) to.focus({ preventScroll: true }); }, 60);
+    }
+
+    if (btnShowForgot) btnShowForgot.addEventListener('click', () => {
+      showAcctPane('#acctPaneForgot');
+      prefillEmail('#acctForgotEmail');
     });
-    if (btnHideReset) btnHideReset.addEventListener('click', () => {
-      const lp = $('#acctPaneLogin');
-      const rp = $('#acctPaneReset');
-      if (rp) rp.hidden = true;
-      if (lp) lp.hidden = false;
-      acctMsg('');
+    if (btnHideForgot) btnHideForgot.addEventListener('click', () => showAcctPane('#acctPaneLogin'));
+    if (btnForgotToCode) btnForgotToCode.addEventListener('click', () => {
+      showAcctPane('#acctPaneReset');
+      prefillEmail('#acctResetEmail');
+    });
+    if (btnHideReset) btnHideReset.addEventListener('click', () => showAcctPane('#acctPaneLogin'));
+
+    const sendResetMailBtn = $('#btnSendResetMail');
+    if (sendResetMailBtn) sendResetMailBtn.addEventListener('click', async () => {
+      const email = ($('#acctForgotEmail') || {}).value || '';
+      if (!C.isEmail(email)) { acctMsg('请输入正确的邮箱地址', 'err'); return; }
+      sendResetMailBtn.disabled = true;
+      acctMsg('正在发送…');
+      try {
+        const r = await C.requestPasswordReset(email);
+        if (r.mail === 'off') {
+          acctMsg('邮件服务尚未配置，请改用恢复码重置（下方入口），或联系管理员。', 'err');
+        } else if (!r.ok) {
+          acctMsg((r.note || '邮件发送失败') + '，可稍后重试或改用恢复码重置。', 'err');
+        } else {
+          acctMsg('如果该邮箱已注册，重置邮件已发出。请查收（含垃圾邮件箱），30 分钟内有效。'
+            + (r.devCode ? `【开发模式验证码】${r.devCode}` : ''), 'ok');
+        }
+      } catch (e) {
+        acctMsg((e && e.message) || '发送失败，请稍后重试', 'err');
+      } finally {
+        sendResetMailBtn.disabled = false;
+      }
+    });
+
+    /* 已登录：发送验证邮件 */
+    const verifyBtn = $('#btnVerifyMail');
+    if (verifyBtn) verifyBtn.addEventListener('click', async () => {
+      verifyBtn.disabled = true;
+      const old = verifyBtn.textContent;
+      verifyBtn.textContent = '发送中…';
+      try {
+        const r = await C.sendVerifyEmail();
+        if (r.already) {
+          toast('这个邮箱已经验证过了');
+          const obj = acctUserObj();
+          if (obj) obj.email_verified = 1;
+          renderAccount();
+        } else if (r.ok) {
+          toast('验证邮件已发送，请查收（含垃圾邮件箱）', { duration: 5000 });
+          verifyBtn.textContent = '已发送，60 秒后可重发';
+          let left = 60;
+          const t = setInterval(() => {
+            left -= 1;
+            if (left <= 0) { clearInterval(t); verifyBtn.disabled = false; verifyBtn.textContent = old; }
+            else verifyBtn.textContent = '已发送，' + left + ' 秒后可重发';
+          }, 1000);
+          return;
+        } else {
+          acctMsg(r.note || '验证邮件发送失败', 'err');
+        }
+      } catch (e) {
+        acctMsg((e && e.message) || '发送失败', 'err');
+      }
+      verifyBtn.disabled = false;
+      verifyBtn.textContent = old;
     });
 
     const resetBtn = $('#btnResetPass');

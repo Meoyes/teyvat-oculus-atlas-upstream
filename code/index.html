@@ -80,7 +80,7 @@ try {
 <link rel="stylesheet" media="print" onload="this.media='all'"
       href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@500;600;700&family=Noto+Sans+SC:wght@400;500;600&display=swap" data-page-node-id="06SAskCDp0jLwQSy4Fu6sa">
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@500;600;700&family=Noto+Sans+SC:wght@400;500;600&display=swap"></noscript>
-<link rel="stylesheet" href="css/style.css?v=20261101-3" data-page-node-id="QF6wrlSleLz5L9tHvrxGnO">
+<link rel="stylesheet" href="css/style.css?v=20261104-1" data-page-node-id="QF6wrlSleLz5L9tHvrxGnO">
 </head>
 <body data-page-node-id="wkhfDViUHYSgCoYBh7AGGC">
 <div id="app" data-page-node-id="gBPaI7hqV7frQwkCpS5sCZ">
@@ -193,9 +193,19 @@ try {
                 <input id="acctEmail" type="email" inputmode="email" autocomplete="email" spellcheck="false" placeholder="邮箱">
                 <input id="acctPass" type="password" autocomplete="current-password" placeholder="密码">
                 <button class="btn btn-ghost btn-sm acct-wide" id="btnLoginPass" type="button">登录</button>
-                <button class="acct-collapse" id="btnShowReset" type="button">忘记密码？用恢复码重置</button>
+                <button class="acct-collapse" id="btnShowForgot" type="button">忘记密码？</button>
               </div>
 
+              <!-- 忘记密码：邮件重置为主 -->
+              <div class="acct-pane" id="acctPaneForgot" hidden>
+                <p class="acct-hint">输入注册邮箱，我们会发一封重置邮件（30 分钟内有效）。</p>
+                <input id="acctForgotEmail" type="email" inputmode="email" autocomplete="email" spellcheck="false" placeholder="注册邮箱">
+                <button class="btn btn-ghost btn-sm acct-wide" id="btnSendResetMail" type="button">发送重置邮件</button>
+                <button class="acct-collapse" id="btnForgotToCode" type="button">收不到邮件？改用恢复码重置</button>
+                <button class="acct-collapse" id="btnHideForgot" type="button">返回登录</button>
+              </div>
+
+              <!-- 恢复码重置（备用手段，保留给没配邮件服务/邮箱不可用的情况） -->
               <div class="acct-pane" id="acctPaneReset" hidden>
                 <input id="acctResetEmail" type="email" inputmode="email" autocomplete="email" spellcheck="false" placeholder="注册邮箱">
                 <input id="acctResetCode" type="text" autocomplete="off" spellcheck="false" placeholder="恢复码（注册时保存的 16 位代码）">
@@ -223,6 +233,10 @@ try {
 
           <div class="acct-user-box" id="acctUserBox" hidden>
             <p class="acct-user" id="acctUser"></p>
+            <p class="acct-verify" id="acctVerify" hidden>
+              <span>邮箱未验证</span>
+              <button class="acct-mini" id="btnVerifyMail" type="button">发送验证邮件</button>
+            </p>
             <p class="acct-state" id="acctState">正在读取云端进度…</p>
             <div class="acct-row">
               <button class="btn btn-ghost btn-sm" id="btnSyncNow" type="button">立即同步</button>
@@ -426,11 +440,26 @@ try {
 
 <div class="toast" id="toast" role="status" aria-live="polite" data-page-node-id="PEMuTHEDeSyJahCxkahCcL"></div>
 
-<script src="js/cloud-config.js?v=20261101-3"></script>
-<script src="js/cloud-own.js?v=20261101-3"></script>
-<script src="js/lib.js?v=20261101-3"></script>
-<script src="js/map.js?v=20261101-3"></script>
-<script src="js/upstream.js?v=20261101-3"></script>
-<script src="js/app.js?v=20261101-3"></script>
+<!-- 邮件链接落地：重置密码 -->
+<div class="auth-modal" id="authResetModal" hidden aria-hidden="true">
+  <div class="auth-modal-card" role="dialog" aria-modal="true" aria-labelledby="authResetTitle">
+    <h2 id="authResetTitle">设置新密码</h2>
+    <p class="auth-modal-sub" id="authResetSub">链接来自重置密码邮件，30 分钟内有效。</p>
+    <input id="authResetNew" type="password" autocomplete="new-password" placeholder="新密码（至少 8 位）">
+    <input id="authResetNew2" type="password" autocomplete="new-password" placeholder="再输一次确认">
+    <p class="auth-modal-msg" id="authResetMsg" hidden></p>
+    <div class="auth-modal-row">
+      <button class="btn btn-ghost btn-sm" id="btnAuthResetCancel" type="button">取消</button>
+      <button class="btn btn-ghost btn-sm" id="btnAuthResetSubmit" type="button">确认重置</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/cloud-config.js?v=20261104-1"></script>
+<script src="js/cloud-own.js?v=20261104-1"></script>
+<script src="js/lib.js?v=20261104-1"></script>
+<script src="js/map.js?v=20261104-1"></script>
+<script src="js/upstream.js?v=20261104-1"></script>
+<script src="js/app.js?v=20261104-1"></script>
 </body>
 </html>

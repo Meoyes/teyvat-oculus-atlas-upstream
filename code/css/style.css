@@ -1075,6 +1075,16 @@ svg{display:block}
 .acct-badge.is-on{background:rgba(60,106,92,.14);color:#33655a}
 .acct-badge.is-err{background:rgba(170,70,60,.13);color:#9d4a40}
 .acct-note{margin:0 0 9px;font-size:10.5px;line-height:1.7;color:var(--ink-3)}
+/* 邮箱验证提示：未验证时显示一行「邮箱未验证 + 发送验证邮件」 */
+.acct-hint{margin:0 0 8px;font-size:10.5px;line-height:1.7;color:var(--ink-3)}
+.acct-verify{
+  display:flex;align-items:center;gap:8px;margin:0 0 8px;padding:6px 8px;border-radius:8px;
+  background:rgba(201,161,92,.12);border:1px solid rgba(179,137,76,.3);
+  font-size:10.5px;color:#8a6531;
+}
+.acct-verify span{flex:1 1 auto}
+.acct-verify .acct-mini{height:24px;padding:0 8px;font-size:10.5px}
+.acct-verify[hidden]{display:none}
 .acct-wide{width:100%;justify-content:center}
 .acct-guest .acct-wide{margin-bottom:0}
 .acct-form{margin-top:8px;display:flex;flex-direction:column;gap:6px}
@@ -1499,3 +1509,36 @@ svg{display:block}
 /* 需要刷新升级时的状态提示 */
 .upd-status.is-warn{color:#a9564a;font-weight:500}
 [data-theme="dark"] .upd-status.is-warn{color:#e09a8e}
+
+/* ============================ 邮件链接落地：重置密码弹层 ============================ */
+.auth-modal{
+  position:fixed;inset:0;z-index:80;display:flex;align-items:center;justify-content:center;
+  padding:20px;background:rgba(18,28,31,.42);backdrop-filter:blur(3px);
+}
+.auth-modal[hidden]{display:none}
+.auth-modal-card{
+  width:100%;max-width:360px;background:var(--panel);border-radius:var(--r-l);
+  padding:22px 20px 18px;box-shadow:var(--shadow-l),0 0 0 1px var(--line);
+  display:flex;flex-direction:column;gap:9px;
+}
+.auth-modal-card h2{margin:0;font-family:var(--font-serif);font-size:16px;letter-spacing:.04em;color:var(--ink)}
+.auth-modal-sub{margin:0 0 4px;font-size:11px;line-height:1.7;color:var(--ink-3)}
+.auth-modal-card input{
+  height:36px;padding:0 11px;border-radius:9px;border:1px solid var(--line);
+  background:var(--panel-2);font-size:13px;color:var(--ink);
+}
+.auth-modal-card input:focus{outline:2px solid rgba(44,111,116,.35);outline-offset:1px}
+.auth-modal-msg{margin:0;font-size:11px;line-height:1.6;color:var(--danger)}
+.auth-modal-msg.is-ok{color:#33655a}
+.auth-modal-msg[hidden]{display:none}
+.auth-modal-row{display:flex;gap:8px;margin-top:4px}
+.auth-modal-row .btn{flex:1 1 auto;justify-content:center}
+
+[data-theme="dark"] .auth-modal{background:rgba(4,10,12,.66)}
+[data-theme="dark"] .auth-modal-card{background:#162326;box-shadow:0 18px 50px rgba(0,0,0,.5),0 0 0 1px rgba(234,230,218,.1)}
+[data-theme="dark"] .auth-modal-card h2{color:#f2eee2}
+[data-theme="dark"] .auth-modal-sub{color:#9fb0b4}
+[data-theme="dark"] .auth-modal-card input{background:#0f1b1e;border-color:rgba(234,230,218,.16);color:#f2eee2}
+[data-theme="dark"] .auth-modal-msg{color:#eda79c}
+[data-theme="dark"] .auth-modal-msg.is-ok{color:#9ad3c3}
+[data-theme="dark"] .acct-verify{background:rgba(203,169,108,.14);border-color:rgba(203,169,108,.28);color:#e0c793}

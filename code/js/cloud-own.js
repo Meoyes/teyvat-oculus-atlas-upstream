@@ -156,9 +156,14 @@
     /* H4：恢复码只显示一次，先存本地并暴露给 UI 提示用户保存 */
     lastRecovery = r.recovery_code || null;
     if (lastRecovery) writeStorage(RECOVERY_KEY, lastRecovery);
+    /* 注册时服务端已自动发出验证邮件，把结果留给 UI 提示 */
+    lastVerify = r.verify || null;
     setSession({ token: r.token, user: r.user }, 'signed_in');
     return session;
   }
+
+  let lastVerify = null;
+  function lastVerifyInfo() { return lastVerify; }
 
   /* 自建账号体系没有验证码 / 微信扫码，UI 靠 caps 提前隐藏入口 */
   async function sendSignupCode() {
@@ -218,16 +223,6 @@
     await api('/progress', 'DELETE');
   }
 
-  /* 一轮只传变动的几个键（整包二十几 KB，增量几十字节） */
-  async function patchProgress(change, ownerName) {
-    const d = await api('/progress/patch', 'POST', {
-      done: (change && change.done) || {},
-      todo: (change && change.todo) || {},
-      owner_name: ownerName || null,
-    });
-    return { updatedAt: d.updated_at || null, done: d.done, todo: d.todo };
-  }
-
   /* ---------------- H4：恢复码 / 改密 / 重置 / 吊销 ---------------- */
   const RECOVERY_KEY = 'gel.cloud.recovery';
   let lastRecovery = null;      // 注册/重置时服务端一次性返回的明文恢复码
@@ -272,16 +267,89 @@
     return api('/auth/revoke-all', 'POST', {}, true);
   }
 
+  /* ---------------- 邮箱验证 / 邮件重置 ----------------
+     渐进式：未验证也能正常用，只是界面提示 + 可重发；
+     验证通过后 forgot 才能把重置链接真正发到这个邮箱。 */
+  function isVerified() {
+    const u = session && session.user;
+    return Boolean(u && (Number(u.email_verified) === 1 || u.email_verified === true));
+  }
+
+  async function sendVerifyEmail() {
+    const r = await api('/auth/verify/send', 'POST', {}, true);
+    if (r && r.already) {
+      if (session && session.user) session.user.email_verified = 1;
+      return { ok: true, already: true };
+    }
+    return {
+      ok: Boolean(r && r.ok),
+      note: (r && r.note) || '',
+      expiresIn: (r && r.expires_in) || 0,
+      devCode: (r && r.dev_code) || '',
+      devToken: (r && r.dev_token) || '',
+    };
+  }
+
+  async function confirmEmail(input) {
+    const payload = {
+      token: (input && input.token) || undefined,
+      email: (input && input.email) || undefined,
+      code: (input && input.code) || undefined,
+    };
+    const r = await api('/auth/verify/confirm', 'POST', payload, false);
+    /* 本地会话里的验证状态同步更新，不用重新拉 /auth/me */
+    if (session && session.user) {
+      session.user.email_verified = 1;
+      writeStorage(USER_KEY, JSON.stringify(session.user));
+    }
+    return { ok: Boolean(r && r.ok), email: (r && r.email) || '' };
+  }
+
+  /* 忘记密码：请求发重置邮件。服务端对未知邮箱也返回成功（防枚举） */
+  async function requestPasswordReset(email) {
+    if (!isEmail(email)) throw new Error('请输入正确的邮箱地址');
+    const r = await api('/auth/forgot', 'POST', {
+      email: String(email).trim().toLowerCase(),
+    }, false);
+    return {
+      ok: Boolean(r && r.ok),
+      mail: (r && r.mail) || 'off',
+      note: (r && r.note) || '',
+      devCode: (r && r.dev_code) || '',
+      devToken: (r && r.dev_token) || '',
+    };
+  }
+
+  /* 凭邮件里的链接/验证码设置新密码；成功后直接登录（服务端已吊销旧会话） */
+  async function resetPasswordWithToken(input) {
+    const r = await api('/auth/reset', 'POST', {
+      token: (input && input.token) || undefined,
+      email: (input && input.email) || undefined,
+      code: (input && input.code) || undefined,
+      new_password: (input && input.newPassword) || '',
+    }, false);
+    lastRecovery = r.recovery_code || null;
+    if (lastRecovery) writeStorage(RECOVERY_KEY, lastRecovery);
+    setSession({ token: r.token, user: r.user }, 'signed_in');
+    return { session, recoveryCode: lastRecovery };
+  }
+
   w.GEL_CLOUD = {
     enabled: Boolean(BASE),
-    caps: { emailCode: false, wechat: false },
+    caps: { emailCode: false, wechat: false, emailVerify: true, mailReset: true },
     start,
     onChange,
     currentSession,
     userName,
     isEmail,
+    isVerified,
     signInWithPassword,
     signUp,
+    lastVerifyInfo,
+    sendVerifyEmail,
+    confirmEmail,
+    requestPasswordReset,
+    resetPasswordWithToken,
     sendSignupCode,
     completeSignup,
     signInWithWeChat,

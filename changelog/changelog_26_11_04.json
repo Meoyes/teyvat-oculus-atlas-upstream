@@ -1,0 +1,32 @@
+{
+ "date": "2026-11-04",
+ "entries": [
+  {
+   "version": "2026.11.04.1",
+   "at": "2026-11-04T12:56+08:00",
+   "title": "修改 1",
+   "tags": [
+    "账号",
+    "安全",
+    "界面"
+   ],
+   "note": "账号：新增邮箱验证（渐进式，6 位码或邮件链接）、忘记密码改为邮件重置（恢复码保留备用）；修复 8 个缺失的 Vercel 路由转发文件（logout/revoke-all/改密/恢复码重置/验证/找回/重置）",
+   "summary": "修改 1 · 代码 4",
+   "added": [],
+   "changed": [
+    "data/atlas_overrides.json"
+   ],
+   "removed": [],
+   "codeAdded": [],
+   "codeChanged": [
+    "css/style.css",
+    "index.html",
+    "js/app.js",
+    "js/cloud-own.js"
+   ],
+   "codeRemoved": [],
+   "bytes": 81,
+   "codeBytes": 247348
+  }
+ ]
+}
