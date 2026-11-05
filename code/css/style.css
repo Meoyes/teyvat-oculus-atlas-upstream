@@ -1601,3 +1601,148 @@ svg{display:block}
 [data-theme="dark"] .acct-collapse.is-danger{color:#eda79c}
 [data-theme="dark"] .auth-modal-card .btn.is-danger{color:#eda79c;border-color:rgba(224,140,128,.4)}
 [data-theme="dark"] .auth-modal-card .btn.is-danger:hover{background:rgba(224,140,128,.14)}
+
+/* ============================ AMDL 富文本 ============================
+   神瞳说明可以写 Markdown + 扩展（容器指令/行内样式），最终都落到 .amdl 里。
+   原则：在 352px 的详情面板里也不塌；深色主题下每个容器都要自己带底色，
+   不能靠继承（面板底色在深色下是深绿，白底容器会刺眼）。
+   ==================================================================== */
+.detail-desc .detail-lead{display:block}
+.detail-desc .detail-doc{margin-top:9px}
+.detail-plain{white-space:pre-wrap;word-break:break-word}
+
+.amdl{font-size:12.5px;line-height:1.78;color:var(--ink-2);word-break:break-word;overflow-wrap:anywhere}
+.amdl>:first-child{margin-top:0}
+.amdl>:last-child{margin-bottom:0}
+.amdl b,.amdl strong{color:var(--ink);font-weight:600}
+.amdl-p{margin:0 0 .6em}
+.amdl-h{margin:1.1em 0 .42em;font-family:var(--font-serif);color:var(--ink);line-height:1.45;letter-spacing:.02em}
+.amdl-h2{font-size:1.16em}
+.amdl-h3{font-size:1.06em}
+.amdl-h4,.amdl-h5,.amdl-h6{font-size:1em;letter-spacing:.06em;color:var(--ink-2)}
+.amdl-hr{border:none;height:1px;margin:.9em 0;background:linear-gradient(90deg,transparent,var(--line) 20%,var(--line) 80%,transparent)}
+.amdl-a{color:var(--teal-2);text-decoration:underline;text-underline-offset:2px}
+.amdl-a:hover{color:var(--teal)}
+.amdl-img{display:block;max-width:100%;height:auto;border-radius:8px}
+.amdl-img-inline{display:inline-block;max-width:100%;vertical-align:-.2em;border-radius:4px}
+.amdl-figure{margin:.7em 0;display:flex;flex-direction:column;gap:5px}
+.amdl-figure[data-align="center"]{align-items:center}
+.amdl-figure[data-align="right"]{align-items:flex-end}
+.amdl-cap{font-size:10.5px;color:var(--ink-3);line-height:1.6;text-align:center}
+.amdl-quote{margin:.7em 0;padding:.1em 0 .1em .85em;border-left:2px solid rgba(179,137,76,.45);color:var(--ink-2)}
+.amdl-quote p:last-child{margin-bottom:0}
+.amdl-list{margin:.4em 0 .7em;padding-left:1.25em;list-style:disc}
+.amdl-list.is-task{list-style:none;padding-left:.15em}
+ol.amdl-list{list-style:decimal}
+.amdl-li{margin:.18em 0}
+.amdl-li>*:last-child{margin-bottom:0}
+.amdl-list .amdl-list{margin:.2em 0}
+.amdl-li.is-done{color:var(--ink-3)}
+.amdl-li.is-done>p{text-decoration:line-through;text-decoration-color:rgba(29,43,48,.28)}
+.amdl-task{display:inline-block;width:11px;height:11px;margin-right:6px;border-radius:3px;vertical-align:-1px;
+  border:1px solid rgba(179,137,76,.55);background:rgba(255,255,255,.6);position:relative}
+.amdl-task.is-on{background:linear-gradient(180deg,#e3be7d,#c39a55);border-color:transparent}
+.amdl-task.is-on::after{content:"";position:absolute;left:3px;top:1px;width:3px;height:6px;
+  border:1.5px solid #3b2a12;border-top:0;border-left:0;transform:rotate(42deg)}
+.amdl-pre{margin:.6em 0;padding:9px 11px;border-radius:8px;overflow:auto;max-height:320px;
+  background:rgba(29,43,48,.055);border:1px solid var(--line-2)}
+.amdl-code-block{font-family:var(--font-mono);font-size:11px;line-height:1.65;color:var(--ink);white-space:pre}
+.amdl-pre .amdl-code-block{display:block}
+.amdl-code-inline{font-family:var(--font-mono);font-size:.92em;padding:1px 4px;border-radius:4px;
+  background:rgba(29,43,48,.07);color:var(--ink)}
+.amdl-kbd{display:inline-block;font-family:var(--font-mono);font-size:.88em;line-height:1.5;
+  padding:0 5px;border-radius:4px;border:1px solid var(--line);border-bottom-width:2px;
+  background:var(--panel);color:var(--ink-2)}
+.amdl mark{background:rgba(227,190,125,.45);color:var(--ink);border-radius:2px;padding:0 1px}
+.amdl-table-wrap{margin:.7em 0;overflow-x:auto}
+.amdl-table{border-collapse:collapse;width:100%;font-size:11.5px}
+.amdl-table th,.amdl-table td{padding:5px 7px;border:1px solid var(--line);text-align:left;vertical-align:top}
+.amdl-table th{background:rgba(179,137,76,.1);color:var(--ink);font-weight:600;white-space:nowrap}
+.amdl-table .is-c{text-align:center}
+.amdl-table .is-r{text-align:right}
+
+/* 提示框：五个 tone 各自一档，深色下同样自带底色 */
+.amdl-note{margin:.7em 0;padding:8px 11px 9px;border-radius:8px;border-left:3px solid var(--amdl-note-c,var(--gold));
+  background:var(--amdl-note-bg,rgba(179,137,76,.09));font-size:12px}
+.amdl-note-t{font-weight:600;color:var(--amdl-note-tc,var(--ink));margin-bottom:3px;letter-spacing:.02em}
+.amdl-note-b>*:last-child{margin-bottom:0}
+.amdl-note[data-tone="info"]{--amdl-note-c:#4c8bb3;--amdl-note-bg:rgba(76,139,179,.1);--amdl-note-tc:#2f6a90}
+.amdl-note[data-tone="tip"]{--amdl-note-c:#3f8d76;--amdl-note-bg:rgba(63,141,118,.1);--amdl-note-tc:#2c6d5b}
+.amdl-note[data-tone="success"]{--amdl-note-c:#4f8f4a;--amdl-note-bg:rgba(79,143,74,.1);--amdl-note-tc:#3c6f38}
+.amdl-note[data-tone="warn"]{--amdl-note-c:#c08a2c;--amdl-note-bg:rgba(192,138,44,.12);--amdl-note-tc:#8a6220}
+.amdl-note[data-tone="danger"]{--amdl-note-c:#bb5a4c;--amdl-note-bg:rgba(187,90,76,.1);--amdl-note-tc:#9a4438}
+.amdl-note[data-tone="quote"]{--amdl-note-c:var(--gold);--amdl-note-bg:rgba(179,137,76,.07)}
+
+.amdl-card{margin:.7em 0;padding:10px 12px;border-radius:10px;background:rgba(255,255,255,.62);
+  border:1px solid var(--line);box-shadow:var(--shadow-s)}
+.amdl-card-t{font-weight:600;color:var(--ink);margin-bottom:5px}
+.amdl-card-b>*:last-child{margin-bottom:0}
+.amdl-align[data-align="center"]{text-align:center}
+.amdl-align[data-align="right"]{text-align:right}
+.amdl-align[data-align="justify"]{text-align:justify}
+.amdl-cols{display:flex;gap:var(--amdl-gap,12px);margin:.7em 0;flex-wrap:wrap}
+.amdl-col{flex:var(--amdl-span,1) 1 0;min-width:110px}
+.amdl-grid,.amdl-gallery{display:grid;grid-template-columns:repeat(var(--amdl-cols,2),minmax(0,1fr));
+  gap:var(--amdl-gap,8px);margin:.7em 0}
+.amdl-gallery .amdl-figure{margin:0}
+.amdl-gallery .amdl-img{width:100%;height:100%;object-fit:cover;max-height:220px}
+.amdl-details,.amdl-spoiler{margin:.7em 0;border:1px solid var(--line);border-radius:8px;
+  background:rgba(255,255,255,.5);padding:7px 10px}
+.amdl-summary{cursor:pointer;font-weight:600;color:var(--ink);font-size:12px;list-style:none;position:relative;padding-left:14px}
+.amdl-summary::-webkit-details-marker{display:none}
+.amdl-summary::before{content:"▸";position:absolute;left:0;top:0;color:var(--gold);transition:transform .18s}
+.amdl-details[open]>.amdl-summary::before{transform:rotate(90deg)}
+.amdl-details-b{margin-top:6px}
+.amdl-spoiler{border-style:dashed}
+.amdl-tabs{margin:.7em 0}
+.amdl-tabs-bar{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:7px}
+.amdl-tab-btn{font-size:11.5px;padding:3px 9px;border-radius:99px;border:1px solid var(--line);
+  background:rgba(255,255,255,.6);color:var(--ink-2)}
+.amdl-tab-btn.is-on{background:linear-gradient(180deg,#e3be7d,#c39a55);border-color:transparent;color:#3b2a12}
+.amdl-tab-panel{display:none}
+.amdl-tab-panel.is-on{display:block}
+.amdl-linkcard{display:flex;gap:9px;align-items:flex-start;margin:.7em 0;padding:9px 11px;border-radius:9px;
+  border:1px solid var(--line);background:rgba(255,255,255,.6);text-decoration:none;color:inherit}
+.amdl-linkcard:hover{border-color:rgba(179,137,76,.5);background:rgba(255,255,255,.85)}
+.amdl-linkcard-icon{width:26px;height:26px;border-radius:6px;flex:none;object-fit:cover}
+.amdl-linkcard-t{font-weight:600;color:var(--ink);font-size:12px;line-height:1.5}
+.amdl-linkcard-d{font-size:11px;color:var(--ink-3);line-height:1.6;margin-top:2px}
+.amdl-linkcard-b{margin-top:6px}
+.amdl-video{width:100%;border-radius:9px;background:#000;margin:.7em 0;display:block}
+.amdl-audio{width:100%;margin:.6em 0}
+.amdl-box{margin:.6em 0}
+.amdl-img-bad{display:block;padding:8px 10px;border-radius:8px;font-size:11px;color:var(--ink-3);
+  background:rgba(29,43,48,.05);border:1px dashed var(--line)}
+
+[data-theme="dark"] .amdl{color:#c2d2cf}
+[data-theme="dark"] .amdl b,[data-theme="dark"] .amdl strong,[data-theme="dark"] .amdl-h,
+[data-theme="dark"] .amdl-note-t,[data-theme="dark"] .amdl-card-t,
+[data-theme="dark"] .amdl-summary,[data-theme="dark"] .amdl-linkcard-t,
+[data-theme="dark"] .amdl-table th,[data-theme="dark"] .amdl-code-inline{color:#eef4f2}
+[data-theme="dark"] .amdl-a{color:#9ad3c3}
+[data-theme="dark"] .amdl-pre{background:rgba(255,255,255,.06);border-color:rgba(234,230,218,.12)}
+[data-theme="dark"] .amdl-code-block{color:#dfe9e6}
+[data-theme="dark"] .amdl-code-inline{background:rgba(255,255,255,.1)}
+[data-theme="dark"] .amdl-kbd{background:rgba(255,255,255,.08);border-color:rgba(234,230,218,.16);color:#d5e2df}
+[data-theme="dark"] .amdl mark{background:rgba(203,169,108,.32);color:#f2eee2}
+[data-theme="dark"] .amdl-table th{background:rgba(203,169,108,.14)}
+[data-theme="dark"] .amdl-table th,[data-theme="dark"] .amdl-table td{border-color:rgba(234,230,218,.14)}
+[data-theme="dark"] .amdl-card,[data-theme="dark"] .amdl-details,[data-theme="dark"] .amdl-spoiler,
+[data-theme="dark"] .amdl-linkcard{background:rgba(255,255,255,.05);border-color:rgba(234,230,218,.13)}
+[data-theme="dark"] .amdl-linkcard:hover{background:rgba(255,255,255,.09)}
+[data-theme="dark"] .amdl-tab-btn{background:rgba(255,255,255,.06);border-color:rgba(234,230,218,.16);color:#c2d2cf}
+[data-theme="dark"] .amdl-tab-btn.is-on{color:#3b2a12}
+[data-theme="dark"] .amdl-task{background:rgba(255,255,255,.1);border-color:rgba(203,169,108,.5)}
+[data-theme="dark"] .amdl-img-bad{background:rgba(255,255,255,.06);border-color:rgba(234,230,218,.16);color:#8fa3a0}
+[data-theme="dark"] .amdl-note{background:var(--amdl-note-bg,rgba(203,169,108,.13))}
+[data-theme="dark"] .amdl-note[data-tone="info"]{--amdl-note-bg:rgba(90,180,224,.14);--amdl-note-tc:#9ed4f0}
+[data-theme="dark"] .amdl-note[data-tone="tip"]{--amdl-note-bg:rgba(120,186,166,.14);--amdl-note-tc:#9ad3c3}
+[data-theme="dark"] .amdl-note[data-tone="success"]{--amdl-note-bg:rgba(120,186,166,.14);--amdl-note-tc:#9ad3c3}
+[data-theme="dark"] .amdl-note[data-tone="warn"]{--amdl-note-bg:rgba(203,169,108,.16);--amdl-note-tc:#e0c793}
+[data-theme="dark"] .amdl-note[data-tone="danger"]{--amdl-note-bg:rgba(224,140,128,.16);--amdl-note-tc:#eda79c}
+[data-theme="dark"] .amdl-note[data-tone="quote"]{--amdl-note-bg:rgba(203,169,108,.1);--amdl-note-tc:#e0c793}
+
+@media (max-width:640px){
+  .amdl-grid,.amdl-gallery{grid-template-columns:1fr}
+  .amdl-col{flex:1 1 100%;min-width:0}
+}

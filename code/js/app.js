@@ -82,6 +82,9 @@
     if (typeof ov.txt === 'string') m.txt = ov.txt;
     if (typeof ov.img === 'string' && ov.img) m.img = ov.img;
     if (typeof ov.title === 'string' && ov.title) m.__title = ov.title;
+    /* AMDL AST：新客户端画富文本；老缓存没有这个字段就只吃 txt */
+    if (ov.doc && Array.isArray(ov.doc.blocks)) m.__doc = ov.doc;
+    else delete m.__doc;
   }
 
   async function boot() {
@@ -1262,6 +1265,8 @@
     const stateTag = isDone
       ? '<span class="tag t-done">已采集</span>'
       : isTodo ? '<span class="tag t-todo">待采集</span>' : '<span class="tag t-none">未采集</span>';
+    /* 有 AMDL 文档就画富文本，否则退回纯文本（老缓存/老客户端都还能看） */
+    const hasDoc = !!(m.__doc && m.__doc.blocks && window.AMDL);
 
     panel.innerHTML = `
       <button class="detail-grab" type="button" aria-label="展开或收起详情面板"><span></span></button>
@@ -1299,7 +1304,9 @@
           <div><dt>状态</dt><dd id="detailState">${stateTag} ${depthTag}</dd></div>
         </dl>
 
-        <p class="detail-desc">${TYPE_DESC[t.key] || ''}${m.txt ? '<br><br>' + escapeHtml(m.txt) : ''}</p>
+        <div class="detail-desc">${TYPE_DESC[t.key] ? '<span class="detail-lead">' + escapeHtml(TYPE_DESC[t.key]) + '</span>' : ''}${hasDoc
+          ? '<div class="detail-doc amdl" id="detailDoc"></div>'
+          : (m.txt ? '<div class="detail-doc detail-plain">' + escapeHtml(m.txt) + '</div>' : '')}</div>
 
         ${guideHtml(m)}
         ${guideExtraHtml(m)}
@@ -1313,6 +1320,19 @@
 
     panel.classList.add('is-open');
     panel.setAttribute('aria-hidden', 'false');
+
+    /* AMDL 富文本：只在这里渲染一次，失败就退回纯文本，绝不让文案整块消失 */
+    const docHost = $('#detailDoc', panel);
+    if (docHost && hasDoc) {
+      try {
+        window.AMDL.render(m.__doc, docHost);
+      } catch (e) {
+        docHost.classList.remove('amdl');
+        docHost.classList.add('detail-plain');
+        docHost.textContent = m.txt || '';
+        if (window.console) console.warn('[amdl] 渲染失败，已退回纯文本', e);
+      }
+    }
 
     // 截图加载
     const shot = $('#detailShot', panel);

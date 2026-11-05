@@ -50,6 +50,31 @@
    "codeRemoved": [],
    "bytes": 0,
    "codeBytes": 263319
+  },
+  {
+   "version": "2026.11.05.3",
+   "at": "2026-11-05T13:15+08:00",
+   "title": "界面与功能更新",
+   "tags": [
+    "界面",
+    "文档"
+   ],
+   "note": "AMDL：说明支持任意内容与样式（提示框/分栏/图集/折叠/标签页/行内样式），同步不覆盖手写",
+   "summary": "代码 4",
+   "added": [],
+   "changed": [],
+   "removed": [],
+   "codeAdded": [
+    "js/amdl.js"
+   ],
+   "codeChanged": [
+    "css/style.css",
+    "index.html",
+    "js/app.js"
+   ],
+   "codeRemoved": [],
+   "bytes": 0,
+   "codeBytes": 298846
   }
  ]
 }
