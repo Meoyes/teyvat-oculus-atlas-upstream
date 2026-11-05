@@ -1542,3 +1542,55 @@ svg{display:block}
 [data-theme="dark"] .auth-modal-msg{color:#eda79c}
 [data-theme="dark"] .auth-modal-msg.is-ok{color:#9ad3c3}
 [data-theme="dark"] .acct-verify{background:rgba(203,169,108,.14);border-color:rgba(203,169,108,.28);color:#e0c793}
+
+/* ============================ 隐私政策 ============================ */
+/* 侧栏入口（放在版权说明下面，和「安装应用」一起，不抢主按钮的注意力） */
+.rail-policy{
+  display:block;width:100%;margin:2px 0 0;padding:2px 0;
+  background:none;border:0;font-family:inherit;text-align:left;
+  font-size:10.5px;line-height:1.6;color:var(--ink-3);
+  text-decoration:underline;text-decoration-color:var(--line);
+  text-underline-offset:3px;cursor:pointer;
+}
+.rail-policy:hover{color:var(--teal-2);text-decoration-color:currentColor}
+
+/* 注册区「注册即表示同意」提示 */
+.acct-policy{margin:6px 0 0;font-size:10px;line-height:1.65;color:var(--ink-3);text-align:center}
+.acct-policy-link{
+  background:none;border:0;padding:0;font:inherit;color:var(--teal-2);
+  text-decoration:underline;text-underline-offset:2px;cursor:pointer;
+}
+.acct-policy-link:hover{color:var(--teal)}
+
+/* 正文：比图例抽屉稍宽，长段落更好读 */
+.drawer-privacy{width:min(520px,100%)}
+.privacy-body{font-size:12px;line-height:1.85;color:var(--ink-2)}
+.privacy-body .privacy-lead{
+  margin:0 0 18px;padding:11px 13px;border-radius:10px;
+  background:rgba(60,106,92,.06);border:1px solid var(--line-2);
+  font-size:11.5px;line-height:1.78;color:var(--ink-2);
+}
+.privacy-body section{margin-bottom:18px}
+.privacy-body section:last-child{margin-bottom:4px}
+.privacy-body h3{
+  font-family:var(--font-serif);font-size:12.5px;letter-spacing:.08em;
+  margin:0 0 8px;padding-bottom:6px;color:var(--ink);
+  border-bottom:1px solid var(--line-2);
+}
+.privacy-body p{margin:0 0 8px}
+.privacy-body ul{margin:0 0 8px;padding-left:16px}
+.privacy-body li{margin:0 0 4px}
+.privacy-body b{color:var(--ink);font-weight:600}
+.privacy-body code{
+  font-family:var(--font-mono);font-size:10.5px;padding:1px 4px;border-radius:4px;
+  background:var(--line-2);color:var(--ink-2);
+}
+.privacy-body a{color:var(--teal-2);text-decoration:underline;text-underline-offset:2px}
+.privacy-body .privacy-meta{margin:10px 0 0;font-size:10.5px;line-height:1.7;color:var(--ink-3)}
+
+[data-theme="dark"] .privacy-body{color:#c2d2cf}
+[data-theme="dark"] .privacy-body .privacy-lead{background:rgba(143,208,196,.07);border-color:rgba(234,230,218,.12);color:#c2d2cf}
+[data-theme="dark"] .privacy-body h3{color:#f2eee2;border-bottom-color:rgba(234,230,218,.14)}
+[data-theme="dark"] .privacy-body b{color:#eef4f2}
+[data-theme="dark"] .privacy-body code{background:rgba(255,255,255,.08);color:#c2d2cf}
+[data-theme="dark"] .privacy-body .privacy-meta{color:#8fa3a0}

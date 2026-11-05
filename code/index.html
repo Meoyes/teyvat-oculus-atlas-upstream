@@ -80,7 +80,7 @@ try {
 <link rel="stylesheet" media="print" onload="this.media='all'"
       href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@500;600;700&family=Noto+Sans+SC:wght@400;500;600&display=swap" data-page-node-id="06SAskCDp0jLwQSy4Fu6sa">
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@500;600;700&family=Noto+Sans+SC:wght@400;500;600&display=swap"></noscript>
-<link rel="stylesheet" href="css/style.css?v=20261104-1" data-page-node-id="QF6wrlSleLz5L9tHvrxGnO">
+<link rel="stylesheet" href="css/style.css?v=20261105-1" data-page-node-id="QF6wrlSleLz5L9tHvrxGnO">
 </head>
 <body data-page-node-id="wkhfDViUHYSgCoYBh7AGGC">
 <div id="app" data-page-node-id="gBPaI7hqV7frQwkCpS5sCZ">
@@ -223,6 +223,7 @@ try {
                 <input id="acctRegName" type="text" maxlength="20" autocomplete="nickname" placeholder="昵称（可选）">
                 <input id="acctRegPass" type="password" autocomplete="new-password" placeholder="设置密码（至少 6 位）">
                 <button class="btn btn-ghost btn-sm acct-wide" id="btnRegister" type="button">注册并登录</button>
+                <p class="acct-policy">注册即表示你已阅读并同意<button type="button" class="acct-policy-link" data-open="privacy">《隐私政策》</button></p>
               </div>
 
               <div class="acct-or" id="acctOr" hidden><span>或</span></div>
@@ -269,6 +270,7 @@ try {
             <li data-page-node-id="WnsKYRqODqVC40XLT4U5yV">双击地图快速放大</li>
           </ul>
           <p class="rail-credit" data-page-node-id="drhUMSpJyVjDCsyL9rYwql">地图与点位数据来自米游社《原神》官方互动地图；本工具为非官方玩家工具。</p>
+          <button class="rail-policy" id="btnPrivacy" type="button">隐私政策 · 我们保存哪些数据</button>
           <button class="btn btn-ghost btn-sm" id="btnInstallRail" type="button" hidden>安装应用</button>
         </section>
       </div>
@@ -397,6 +399,103 @@ try {
   </aside>
 </div>
 
+<!-- ============ 隐私政策 ============ -->
+<div class="drawer-wrap" id="privacyWrap" aria-hidden="true">
+  <div class="drawer-scrim" data-close="privacy"></div>
+  <aside class="drawer drawer-privacy" role="dialog" aria-modal="true" aria-label="隐私政策">
+    <header class="drawer-head">
+      <h2>隐私政策</h2>
+      <button class="icon-btn" data-close="privacy" aria-label="关闭">
+        <svg viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      </button>
+    </header>
+    <div class="drawer-body privacy-body">
+      <p class="privacy-lead">三句话说完：<b>不登录也能用全部功能</b>，进度只存在你自己的浏览器里；登录只是为了多设备同步，我们只保存邮箱、密码哈希和你勾过的点位；<b>没有广告、没有统计 SDK、没有 Cookie</b>。</p>
+
+      <section>
+        <h3>一、不登录时：数据只在你的设备上</h3>
+        <p>本站不要求注册即可使用全部功能。此时下列信息仅写入浏览器 localStorage，<b>不会上传到任何服务器</b>：</p>
+        <ul>
+          <li>采集进度（已采集 / 待采集的点位键）</li>
+          <li>主题（浅色 / 深色）、图例折叠状态、路线分屏设置</li>
+          <li>缓存的上游版本号与代码包版本号（用于增量更新）</li>
+        </ul>
+        <p>清除浏览器数据或卸载应用会一并删除这些内容，我们无法恢复。</p>
+      </section>
+
+      <section>
+        <h3>二、注册账号后我们保存什么</h3>
+        <ul>
+          <li><b>邮箱</b>：作为账号标识，用于登录、邮箱验证与找回密码。</li>
+          <li><b>昵称</b>：可选，不填则默认取邮箱前缀。</li>
+          <li><b>密码</b>：只保存 PBKDF2-SHA256（600,000 次迭代）的单向哈希，<b>不保存明文</b>，我们也无法还原。</li>
+          <li><b>恢复码</b>：注册时一次性展示，服务器只保存它的 SHA-256 哈希。</li>
+          <li><b>邮箱验证状态</b>与验证时间。</li>
+          <li><b>同步的进度</b>：点位键（形如 <code>2:100751</code>）、状态（已采集 / 待采集）、每个键的修改时间，以及你的昵称。</li>
+        </ul>
+        <p>我们不收集手机号、真实姓名、身份证号、地理位置、通讯录、相册或设备唯一标识。</p>
+      </section>
+
+      <section>
+        <h3>三、IP 地址与访问日志</h3>
+        <p>为防止暴力破解和滥发验证邮件，登录、注册、找回密码、验证码校验等接口设有频率限制。限流记录中的 IP 以 <b>加盐 SHA-256 哈希</b>形式保存（盐为本站服务端密钥），<b>不保存明文地址</b>，计数记录最多保留 7 天后自动清理。</p>
+        <p>站点托管于 Vercel，数据库位于 Turso（东京区域）。托管平台会按其自身策略记录标准 HTTP 访问日志（IP、User-Agent、请求路径、时间），我们不做用户画像或行为分析。</p>
+      </section>
+
+      <section>
+        <h3>四、第三方请求</h3>
+        <p>打开页面或使用某些功能时，你的浏览器会直接向下列第三方发起请求。这些请求会让对方看到你的 IP 与 User-Agent，由对应服务商按其隐私政策处理：</p>
+        <ul>
+          <li><b>米哈游官方 CDN</b>（act-webstatic.hoyoverse.com 等）：地图瓦片与点位官方截图。</li>
+          <li><b>Google Fonts</b>（fonts.googleapis.com / fonts.gstatic.com）：思源宋体与思源黑体。首次加载后由 Service Worker 缓存，之后可离线使用。</li>
+          <li><b>GitHub / jsDelivr</b>（raw.githubusercontent.com、cdn.jsdelivr.net）：检查版本更新、下载增量数据与界面代码包。</li>
+          <li><b>邮件服务商</b>：仅在你注册或申请重置密码时，邮箱地址会交给当前部署所用的邮件服务商（Resend / Brevo / Mailjet 之一）用于投递。邮件内容只含验证码与链接，不含你的进度数据。</li>
+        </ul>
+        <p>除此之外没有广告、统计、埋点或社交插件。</p>
+      </section>
+
+      <section>
+        <h3>五、我们如何保护这些数据</h3>
+        <ul>
+          <li>全站 HTTPS；接口使用 JWT 鉴权，令牌带唯一编号（jti），可单独吊销。</li>
+          <li>登录令牌默认 7 天过期；修改或重置密码后，其他设备上的登录会立即失效。</li>
+          <li>密码使用 PBKDF2-SHA256 600,000 次迭代；恢复码与邮件令牌只存哈希，且一次性有效。</li>
+          <li>登录、注册、找回密码、验证码校验均有频率限制。</li>
+        </ul>
+        <p>但请理解：没有任何系统能保证绝对安全。请勿在多个站点复用同一密码。</p>
+      </section>
+
+      <section>
+        <h3>六、你的权利</h3>
+        <ul>
+          <li><b>导出</b>：采集清单底部的「导出进度」可把全部标记导出为 JSON。</li>
+          <li><b>更正</b>：昵称目前不支持自助修改，可联系下方地址申请。</li>
+          <li><b>删除本机数据</b>：退出登录后清除浏览器数据（或卸载应用）即可。</li>
+          <li><b>删除云端数据</b>：通过下方联系方式提出申请，我们会在 7 个工作日内删除你的账号与全部进度记录。</li>
+          <li><b>撤回同意</b>：不再登录即不再产生新的云端数据；已保存的数据按上一条删除。</li>
+        </ul>
+      </section>
+
+      <section>
+        <h3>七、未成年人</h3>
+        <p>本站面向一般玩家。若你未满 14 周岁，请在监护人同意和指导下使用，不要注册账号或提交真实邮箱。</p>
+      </section>
+
+      <section>
+        <h3>八、政策变更</h3>
+        <p>本政策更新时会修改下方生效日期，并在「更新日志」中说明变更要点。变更后继续使用即视为接受更新后的政策。</p>
+      </section>
+
+      <section>
+        <h3>九、联系我们</h3>
+        <p>本站是开源的非官方玩家工具。问题反馈与数据删除申请可通过 GitHub 仓库提交：<a href="https://github.com/Meoyes/teyvat-oculus-atlas/issues" target="_blank" rel="noopener noreferrer">Meoyes/teyvat-oculus-atlas</a>。</p>
+        <p class="privacy-meta">生效日期：2026 年 11 月 5 日 · 版本 v1</p>
+        <p class="privacy-meta">「神瞳图鉴」为非官方玩家工具，与米哈游无关；游戏地图与点位素材版权归米哈游所有。</p>
+      </section>
+    </div>
+  </aside>
+</div>
+
 <!-- ============ 更新日志抽屉 ============ -->
 <div class="drawer-wrap" id="changelogWrap" aria-hidden="true">
   <div class="drawer-scrim" data-close="changelog"></div>
@@ -455,11 +554,11 @@ try {
   </div>
 </div>
 
-<script src="js/cloud-config.js?v=20261104-1"></script>
-<script src="js/cloud-own.js?v=20261104-1"></script>
-<script src="js/lib.js?v=20261104-1"></script>
-<script src="js/map.js?v=20261104-1"></script>
-<script src="js/upstream.js?v=20261104-1"></script>
-<script src="js/app.js?v=20261104-1"></script>
+<script src="js/cloud-config.js?v=20261105-1"></script>
+<script src="js/cloud-own.js?v=20261105-1"></script>
+<script src="js/lib.js?v=20261105-1"></script>
+<script src="js/map.js?v=20261105-1"></script>
+<script src="js/upstream.js?v=20261105-1"></script>
+<script src="js/app.js?v=20261105-1"></script>
 </body>
 </html>

@@ -153,6 +153,8 @@
     initCloud();
     /* 邮件里的 #verify= / #reset= 链接：启动即处理 */
     handleAuthLink();
+    /* #privacy 可分享：外部链接直接落到隐私政策 */
+    if (String(location.hash || '') === '#privacy') openPrivacy();
   }
 
   // 上游补全某个地图的数据后，就地重建该地图的标记与索引
@@ -1537,6 +1539,25 @@
     if (w) w.setAttribute('aria-hidden', 'true');
   }
 
+  /* 隐私政策抽屉：内容在 index.html 里静态写好（随代码包更新，离线可读） */
+  function openPrivacy() {
+    const w = $('#privacyWrap');
+    if (!w) return;
+    w.setAttribute('aria-hidden', 'false');
+    w.querySelector('.drawer-body').scrollTop = 0;
+    closeRail();
+  }
+
+  function closePrivacy() {
+    const w = $('#privacyWrap');
+    if (w) w.setAttribute('aria-hidden', 'true');
+  }
+
+  function isPrivacyOpen() {
+    const w = $('#privacyWrap');
+    return Boolean(w && w.getAttribute('aria-hidden') === 'false');
+  }
+
   function renderProgress() {
     const body = $('#progressBody');
     if (!body) return;
@@ -2203,6 +2224,10 @@
     $('#btnLegend').addEventListener('click', openLegend);
     const legendRail = $('#btnLegendRail');
     if (legendRail) legendRail.addEventListener('click', openLegend);
+    /* 隐私政策：侧栏入口 + 注册区的《隐私政策》链接 */
+    const btnPrivacy = $('#btnPrivacy');
+    if (btnPrivacy) btnPrivacy.addEventListener('click', openPrivacy);
+    $$('[data-open="privacy"]').forEach((el) => el.addEventListener('click', openPrivacy));
     const btnProgress = $('#btnProgress');
     if (btnProgress) btnProgress.addEventListener('click', openProgress);
     const statsBox = $('#globalStats');
@@ -2225,6 +2250,7 @@
         else if (which === 'lightbox') closeLightbox();
         else if (which === 'progress') closeProgress();
         else if (which === 'guideExtra') closeGuideExtra();
+        else if (which === 'privacy') closePrivacy();
         else $('#legendWrap').setAttribute('aria-hidden', 'true');
       });
     });
@@ -2289,6 +2315,9 @@
       railScrim.classList.remove('is-on');
     });
 
+    window.addEventListener('hashchange', () => {
+      if (String(location.hash || '') === '#privacy') openPrivacy();
+    });
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
         if (isLightboxOpen()) closeLightbox();
@@ -2296,6 +2325,7 @@
         else if (window.__GEL_UP && window.__GEL_UP.isChangelogOpen()) window.__GEL_UP.closeChangelog();
         else if (isProgressOpen()) closeProgress();
         else if (isGuideExtraOpen()) closeGuideExtra();
+        else if (isPrivacyOpen()) closePrivacy();
         else if ($('#legendWrap').getAttribute('aria-hidden') === 'false') $('#legendWrap').setAttribute('aria-hidden', 'true');
         else if (rail.classList.contains('is-open')) { rail.classList.remove('is-open'); railScrim.classList.remove('is-on'); }
         else if (App.selectMode || App.multi.size) { clearMulti(); setSelectMode(null); }

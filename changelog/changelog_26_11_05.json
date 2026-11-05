@@ -1,0 +1,30 @@
+{
+ "date": "2026-11-05",
+ "entries": [
+  {
+   "version": "2026.11.05.1",
+   "at": "2026-11-05T12:39+08:00",
+   "title": "修改 1",
+   "tags": [
+    "界面",
+    "隐私"
+   ],
+   "note": "新增隐私政策（侧栏入口 + 注册同意提示 + #privacy 直达）；限流记录中的 IP 改为加盐哈希并清理 7 天前计数",
+   "summary": "修改 1 · 代码 3",
+   "added": [],
+   "changed": [
+    "data/atlas_overrides.json"
+   ],
+   "removed": [],
+   "codeAdded": [],
+   "codeChanged": [
+    "css/style.css",
+    "index.html",
+    "js/app.js"
+   ],
+   "codeRemoved": [],
+   "bytes": 81,
+   "codeBytes": 244761
+  }
+ ]
+}
