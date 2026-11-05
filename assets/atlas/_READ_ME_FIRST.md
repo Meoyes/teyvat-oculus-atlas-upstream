@@ -8,7 +8,9 @@
 
 ## 怎么用
 
-1. 桌面 `shentong/` 里是全量文件（`feng1.md` … `bing140.md`，共 1331 个）
+1. 桌面 `shentong/` 里是全量文件，共 **1644 个**：
+   神瞳 1331 个（`feng1` … `bing140`）+ 区域特殊收集物 313 个（`feihong` 绯红玉髓 80、
+   `liuming` 流明晶石 83、`jianwen` 键纹 62、`jiyi` 技忆团块 30、`yidi` 影生翼滴 58）
 2. 挑要改的，**复制**到这个目录，改内容
 3. 发布：`python scripts/build_upstream.py --note "说明" --tags 点位 --publish`
 4. 站点下次检查更新时会自动拉取并生效（约 2–5 分钟 CDN 刷新）
@@ -51,9 +53,11 @@ node scripts/oculi_md.mjs sync --dry-run  # 只看会改什么
 
 ## 注意
 
-- 文件名保持 `元素拼音+编号`：`feng`风 `yan`岩 `lei`雷 `cao`草 `shui`水 `huo`火 `bing`冰 `yue`月
+- 文件名保持 `元素拼音+编号`：`feng`风 `yan`岩 `lei`雷 `cao`草 `shui`水 `huo`火 `bing`冰 `yue`月、
+  `feihong`绯红玉髓 `liuming`流明晶石 `jianwen`键纹 `jiyi`技忆团块 `yidi`影生翼滴
 - 本目录的 md **不会**被上游发布流程当成普通资源清单管理，可以放心增删
 - 以 `_` 开头的文件会被忽略（比如本说明和速查）
 - 只放「要覆盖的点位」：既没正文也没截图的文件会被构建器跳过
+- 忘了删「（暂无说明，可在此补充）」也没关系，这一行在编译期会被摘掉
 - 这里写的是**文本与样式**，不执行脚本：裸 HTML 按文字显示，
   `javascript:` 链接与 `url(...)` 样式会被丢弃（上游内容不可信，客户端只做白名单渲染）
