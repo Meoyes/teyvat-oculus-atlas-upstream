@@ -3020,6 +3020,14 @@
       });
     }
 
+    /* 跨域部署（比如 EdgeOne 静态镜像）时，接口其实跑在另一台机器上。
+       邮件未配置这类「服务端环境变量」问题必须把机器指出来，否则会在
+       错的项目里反复找配置。 */
+    const apiWhere = (() => {
+      const cc = (typeof window !== 'undefined' && window.GEL_CLOUD_CONFIG) || {};
+      return cc.apiHost ? '（接口在 ' + cc.apiHost + '）' : '';
+    })();
+
     /* 已登录状态 */
     $('#btnSyncNow').addEventListener('click', () => {
       if (!CloudUI.user) return;
@@ -3074,7 +3082,7 @@
       try {
         const r = await C.requestPasswordReset(email);
         if (r.mail === 'off') {
-          acctMsg('邮件服务尚未配置，请改用恢复码重置（下方入口），或联系管理员。', 'err');
+          acctMsg('邮件服务尚未配置' + apiWhere + '，请改用恢复码重置（下方入口），或联系管理员。', 'err');
         } else if (!r.ok) {
           acctMsg((r.note || '邮件发送失败') + '，可稍后重试或改用恢复码重置。', 'err');
         } else {
@@ -3112,7 +3120,7 @@
           }, 1000);
           return;
         } else {
-          acctMsg(r.note || '验证邮件发送失败', 'err');
+          acctMsg((r.note || '验证邮件发送失败') + (/未配置/.test(r.note || '') ? apiWhere : ''), 'err');
         }
       } catch (e) {
         acctMsg((e && e.message) || '发送失败', 'err');

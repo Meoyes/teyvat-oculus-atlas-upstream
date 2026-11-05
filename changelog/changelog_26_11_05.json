@@ -75,6 +75,28 @@
    "codeRemoved": [],
    "bytes": 0,
    "codeBytes": 298846
+  },
+  {
+   "version": "2026.11.05.4",
+   "at": "2026-11-05T18:37+08:00",
+   "title": "界面与功能更新",
+   "tags": [
+    "界面"
+   ],
+   "note": "邮件未配置提示指出接口所在主机（镜像站排错）",
+   "summary": "代码 3",
+   "added": [],
+   "changed": [],
+   "removed": [],
+   "codeAdded": [],
+   "codeChanged": [
+    "index.html",
+    "js/app.js",
+    "js/cloud-config.js"
+   ],
+   "codeRemoved": [],
+   "bytes": 0,
+   "codeBytes": 174271
   }
  ]
 }
