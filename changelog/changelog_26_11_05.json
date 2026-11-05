@@ -25,6 +25,31 @@
    "codeRemoved": [],
    "bytes": 81,
    "codeBytes": 244761
+  },
+  {
+   "version": "2026.11.05.2",
+   "at": "2026-11-05T12:50+08:00",
+   "title": "界面与功能更新",
+   "tags": [
+    "账号",
+    "隐私",
+    "安全"
+   ],
+   "note": "账号自助注销（密码二次确认，删除云端数据并立即使旧令牌失效）；隐私政策更新到 v2；已登录场景密码错误改 403（不再误清会话）",
+   "summary": "代码 4",
+   "added": [],
+   "changed": [],
+   "removed": [],
+   "codeAdded": [],
+   "codeChanged": [
+    "css/style.css",
+    "index.html",
+    "js/app.js",
+    "js/cloud-own.js"
+   ],
+   "codeRemoved": [],
+   "bytes": 0,
+   "codeBytes": 263319
   }
  ]
 }

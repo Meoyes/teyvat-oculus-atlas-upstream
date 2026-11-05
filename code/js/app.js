@@ -2320,7 +2320,9 @@
     });
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
-        if (isLightboxOpen()) closeLightbox();
+        if (isDelAcctOpen()) closeDelAcctModal();
+        else if (isResetModalOpen()) closeResetModal();
+        else if (isLightboxOpen()) closeLightbox();
         else if (isDrawerOpen()) closeDrawer();
         else if (window.__GEL_UP && window.__GEL_UP.isChangelogOpen()) window.__GEL_UP.closeChangelog();
         else if (isProgressOpen()) closeProgress();
@@ -2637,6 +2639,11 @@
     pendingResetToken = null;
   }
 
+  function isResetModalOpen() {
+    const box = $('#authResetModal');
+    return Boolean(box && box.hidden === false);
+  }
+
   async function submitAuthReset() {
     const msg = $('#authResetMsg');
     const btn = $('#btnAuthResetSubmit');
@@ -2670,6 +2677,76 @@
     }
   }
 
+  /* ---------------- 删除账号（自助注销，需密码二次确认） ---------------- */
+  function openDelAcctModal() {
+    const box = $('#delAcctModal');
+    if (!box) return;
+    box.hidden = false;
+    box.setAttribute('aria-hidden', 'false');
+    const msg = $('#delAcctMsg');
+    if (msg) { msg.hidden = true; msg.textContent = ''; msg.classList.remove('is-ok'); }
+    const pass = $('#delAcctPass');
+    if (pass) pass.value = '';
+    setTimeout(() => { if (pass) pass.focus({ preventScroll: true }); }, 80);
+  }
+
+  function closeDelAcctModal() {
+    const box = $('#delAcctModal');
+    if (box) { box.hidden = true; box.setAttribute('aria-hidden', 'true'); }
+  }
+
+  function isDelAcctOpen() {
+    const box = $('#delAcctModal');
+    return Boolean(box && box.hidden === false);
+  }
+
+  async function submitDeleteAccount() {
+    const msg = $('#delAcctMsg');
+    const btn = $('#btnDelAcctConfirm');
+    const fail = (text) => {
+      if (msg) { msg.hidden = false; msg.classList.remove('is-ok'); msg.textContent = text; }
+    };
+    const pass = (($('#delAcctPass') || {}).value || '');
+    if (!pass) { fail('请输入当前密码'); return; }
+    const C = window.GEL_CLOUD;
+    if (!C || !C.enabled) { fail('云服务暂不可用，请稍后重试'); return; }
+    if (btn) btn.disabled = true;
+    try {
+      await C.deleteAccount(pass);
+      CloudUI.user = null;
+      CloudUI.name = '';
+      CloudUI.status = 'off';
+      CloudUI.lastSync = 0;
+      /* 本机进度保留，但解除归属，避免下次登录被当成同一账号合并 */
+      App.localOwner = null;
+      saveStore({ localOnly: true });
+      closeDelAcctModal();
+      resetAcctForm();
+      renderAccount();
+      acctMsg('');
+      toast('账号已删除，云端数据已清除；本机进度仍保留', { duration: 6000 });
+    } catch (e) {
+      fail((e && e.message) || '删除失败，请稍后重试');
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  function bindDelAcctModal() {
+    const box = $('#delAcctModal');
+    if (!box || box.dataset.bound === '1') return;
+    box.dataset.bound = '1';
+    const cancel = $('#btnDelAcctCancel');
+    const confirm = $('#btnDelAcctConfirm');
+    if (cancel) cancel.addEventListener('click', closeDelAcctModal);
+    if (confirm) confirm.addEventListener('click', submitDeleteAccount);
+    const pass = $('#delAcctPass');
+    if (pass) pass.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); submitDeleteAccount(); }
+    });
+    box.addEventListener('click', (e) => { if (e.target === box) closeDelAcctModal(); });
+  }
+
   function bindAuthModal() {
     const box = $('#authResetModal');
     if (!box || box.dataset.bound === '1') return;
@@ -2689,6 +2766,7 @@
 
   async function handleAuthLink() {
     bindAuthModal();
+    bindDelAcctModal();
     const C = window.GEL_CLOUD;
     const m = /^#(verify|reset)=([A-Za-z0-9_-]{8,200})$/.exec(String(location.hash || ''));
     if (!m) return;
@@ -2939,6 +3017,9 @@
       renderAccount();
       toast('已退出登录，进度仍保存在本机');
     });
+
+    const btnDeleteAccount = $('#btnDeleteAccount');
+    if (btnDeleteAccount) btnDeleteAccount.addEventListener('click', openDelAcctModal);
 
     /* ---------------- 忘记密码（邮件为主，恢复码备用） ---------------- */
     const btnShowForgot = $('#btnShowForgot');

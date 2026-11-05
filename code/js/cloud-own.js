@@ -176,10 +176,6 @@
     throw new Error('当前版本未提供微信登录，请用邮箱注册');
   }
 
-  async function signOut() {
-    setSession(null, 'signed_out');
-  }
-
   /* ---------------- 进度数据 ---------------- */
   async function loadProgress() {
     const d = await api('/progress', 'GET');
@@ -265,6 +261,16 @@
 
   async function revokeAllDevices() {
     return api('/auth/revoke-all', 'POST', {}, true);
+  }
+
+  /* 注销账号：服务端删除账号与全部云端数据（进度、邮箱验证记录、令牌）。
+     成功后清本地会话与恢复码；**本机进度保留**——那是用户自己浏览器里的数据，
+     政策里也是这么写的，想一起清可以用「清空当前页」或清除浏览器数据。 */
+  async function deleteAccount(password) {
+    const r = await api('/auth/account', 'DELETE', { password: String(password || '') }, true);
+    setSession(null, 'signed_out');
+    clearRecoveryCode();
+    return r || { ok: true };
   }
 
   /* ---------------- 邮箱验证 / 邮件重置 ----------------
@@ -359,6 +365,7 @@
     changePassword,
     resetPassword,
     revokeAllDevices,
+    deleteAccount,
     loadProgress,
     saveProgress,
     patchProgress,

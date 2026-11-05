@@ -80,7 +80,7 @@ try {
 <link rel="stylesheet" media="print" onload="this.media='all'"
       href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@500;600;700&family=Noto+Sans+SC:wght@400;500;600&display=swap" data-page-node-id="06SAskCDp0jLwQSy4Fu6sa">
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@500;600;700&family=Noto+Sans+SC:wght@400;500;600&display=swap"></noscript>
-<link rel="stylesheet" href="css/style.css?v=20261105-1" data-page-node-id="QF6wrlSleLz5L9tHvrxGnO">
+<link rel="stylesheet" href="css/style.css?v=20261105-2" data-page-node-id="QF6wrlSleLz5L9tHvrxGnO">
 </head>
 <body data-page-node-id="wkhfDViUHYSgCoYBh7AGGC">
 <div id="app" data-page-node-id="gBPaI7hqV7frQwkCpS5sCZ">
@@ -250,6 +250,7 @@ try {
               <button class="btn btn-ghost btn-sm acct-wide" id="btnChpwd" type="button">修改密码（其他设备将被登出）</button>
               <button class="btn btn-ghost btn-sm acct-wide" id="btnRevokeAll" type="button">仅登出所有设备</button>
             </div>
+            <button class="acct-collapse is-danger" id="btnDeleteAccount" type="button">删除账号（清除云端数据）</button>
           </div>
           <p class="acct-msg" id="acctMsg" hidden></p>
         </section>
@@ -471,9 +472,10 @@ try {
           <li><b>导出</b>：采集清单底部的「导出进度」可把全部标记导出为 JSON。</li>
           <li><b>更正</b>：昵称目前不支持自助修改，可联系下方地址申请。</li>
           <li><b>删除本机数据</b>：退出登录后清除浏览器数据（或卸载应用）即可。</li>
-          <li><b>删除云端数据</b>：通过下方联系方式提出申请，我们会在 7 个工作日内删除你的账号与全部进度记录。</li>
+          <li><b>删除云端数据（自助）</b>：账号面板底部「删除账号」，输入当前密码确认后<b>立即删除</b>账号、全部同步进度、邮箱验证记录与未过期令牌，无法恢复。本机进度会保留在这台设备上。</li>
           <li><b>撤回同意</b>：不再登录即不再产生新的云端数据；已保存的数据按上一条删除。</li>
         </ul>
+        <p>为阻止已签发的登录令牌在注销后继续使用，我们会保留一条<b>只含账号内部编号、不含任何个人信息</b>的失效标记，30 天后自动清理。</p>
       </section>
 
       <section>
@@ -489,7 +491,7 @@ try {
       <section>
         <h3>九、联系我们</h3>
         <p>本站是开源的非官方玩家工具。问题反馈与数据删除申请可通过 GitHub 仓库提交：<a href="https://github.com/Meoyes/teyvat-oculus-atlas/issues" target="_blank" rel="noopener noreferrer">Meoyes/teyvat-oculus-atlas</a>。</p>
-        <p class="privacy-meta">生效日期：2026 年 11 月 5 日 · 版本 v1</p>
+        <p class="privacy-meta">生效日期：2026 年 11 月 5 日 · 版本 v2</p>
         <p class="privacy-meta">「神瞳图鉴」为非官方玩家工具，与米哈游无关；游戏地图与点位素材版权归米哈游所有。</p>
       </section>
     </div>
@@ -554,11 +556,25 @@ try {
   </div>
 </div>
 
-<script src="js/cloud-config.js?v=20261105-1"></script>
-<script src="js/cloud-own.js?v=20261105-1"></script>
-<script src="js/lib.js?v=20261105-1"></script>
-<script src="js/map.js?v=20261105-1"></script>
-<script src="js/upstream.js?v=20261105-1"></script>
-<script src="js/app.js?v=20261105-1"></script>
+<!-- 删除账号（自助注销） -->
+<div class="auth-modal" id="delAcctModal" hidden aria-hidden="true">
+  <div class="auth-modal-card" role="dialog" aria-modal="true" aria-labelledby="delAcctTitle">
+    <h2 id="delAcctTitle">删除账号</h2>
+    <p class="auth-modal-sub">将永久删除账号、全部云端进度与邮箱验证记录，<b>无法恢复</b>。本机进度会保留在这台设备上。</p>
+    <input id="delAcctPass" type="password" autocomplete="current-password" placeholder="输入当前密码确认">
+    <p class="auth-modal-msg" id="delAcctMsg" hidden></p>
+    <div class="auth-modal-row">
+      <button class="btn btn-ghost btn-sm" id="btnDelAcctCancel" type="button">取消</button>
+      <button class="btn btn-ghost btn-sm is-danger" id="btnDelAcctConfirm" type="button">永久删除</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/cloud-config.js?v=20261105-2"></script>
+<script src="js/cloud-own.js?v=20261105-2"></script>
+<script src="js/lib.js?v=20261105-2"></script>
+<script src="js/map.js?v=20261105-2"></script>
+<script src="js/upstream.js?v=20261105-2"></script>
+<script src="js/app.js?v=20261105-2"></script>
 </body>
 </html>

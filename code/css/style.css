@@ -1594,3 +1594,10 @@ svg{display:block}
 [data-theme="dark"] .privacy-body b{color:#eef4f2}
 [data-theme="dark"] .privacy-body code{background:rgba(255,255,255,.08);color:#c2d2cf}
 [data-theme="dark"] .privacy-body .privacy-meta{color:#8fa3a0}
+
+/* 删除账号：账号面板底部的次要危险入口 */
+.acct-collapse.is-danger{color:var(--danger);opacity:.85}
+.acct-collapse.is-danger:hover{opacity:1;color:var(--danger)}
+[data-theme="dark"] .acct-collapse.is-danger{color:#eda79c}
+[data-theme="dark"] .auth-modal-card .btn.is-danger{color:#eda79c;border-color:rgba(224,140,128,.4)}
+[data-theme="dark"] .auth-modal-card .btn.is-danger:hover{background:rgba(224,140,128,.14)}
