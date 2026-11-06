@@ -1,53 +1,53 @@
-# 神瞳图鉴 · 上游资源仓库
+# 神瞳图鉴 · 上游仓库（仅发布公告）
 
-`teyvat-oculus-atlas` 的增量更新上游。站点每次打开（间隔 ≥ 24 小时）会拉取本仓库的
-`manifest.json`，按文件哈希对比出「新增 / 修改 / 删除」，只下载发生变化的文件，
-并把已过时的文件从本地缓存中删除。
+> 本仓库**只发布公告**。站点的代码、地图瓦片、点位与攻略数据全部随
+> **站点静态部署**发布，不再进入本仓库。
 
-## 目录
+## 本仓库内容
 
 | 路径 | 说明 |
 | --- | --- |
-| `manifest.json` | 版本清单：`version`、每组文件数与 `files{路径: [字节数, sha256前16位]}` |
-| `changelog/changelog_YY_MM_DD.json` | 每日更新日志，同一天多次更新写入 `entries` 数组 |
-| `data/` | 点位与地图数据（maps / markers_* / anchors / guide_*） |
-| `tiles/` | 地图瓦片 |
-| `assets/` | 图片与素材 |
-| `code/` | **界面代码包**：`index.html`、`manifest.webmanifest`、`js/`、`css/` |
+| `manifest.json` | 轻量清单：`version` 与 `announce`（公告路径 / 字节数 / 完整 sha256） |
+| `manifest.json.sig` | `manifest.json` 的 Ed25519 签名 |
+| `data/announce.json` | 公告内容（来自站点 `site/data/announce.json`） |
+| `README.md` | 本说明 |
 
-## 两条更新通道
+`manifest.json` 里 `files` / `code` / `changelog` / `counts` 四个字段恒为空，
+是给**尚未更新的旧客户端**的兼容垫片：`loadManifest()` 要求 `m.files` 存在，
+`sanitize()` / `diff()` 会读取 `files` / `code` / `changelog`。旧客户端据此认为
+「没有任何资源变更」，只拉取公告，不会误删或覆盖本地缓存。
 
-| 通道 | 内容 | 客户端行为 |
-| --- | --- | --- |
-| `files` | 数据、瓦片、素材 | 写入 `gel-upstream-v1`，下次请求即生效 |
-| `code` | `index.html` + `js/` + `css/` | 作为**整包快照**装进 `/__code__/<版本>/`，SW 按精确键供给，装完自动刷新一次 |
+## 更新日志
 
-`code` 与 `files` 是**完全隔离的命名空间**，路径不会重叠。这一点是硬要求：
-数据缓存按 `ignoreSearch` 命中，代码混进去就会出现「页面是新的、脚本是旧的」整站崩溃（2026-10-31 事故）。
-
-代码包的三条安全线：
-
-1. **原子**：`index.html` 与 `js/css` 来自同一个快照，不会错配；
-2. **可回退**：本地保留上一版，新包启动失败会自动切回，并把该版本标记为 `blocked` 不再重试；
-3. **部署优先**：站点重新部署（`sw.js` 变更）时清空代码包，已部署的版本立即成为权威。
-
-`sw.js` 不在代码包内 —— Service Worker 脚本只能由浏览器直接向站点更新，放进缓存没有意义。
-
-## 当前版本
-
-- `version`: `2026.11.06.1`
-- 文件数：`1724`
-- 分组：`{"data": 13, "tiles": 1080, "assets": 631}`
-- 代码包：`10` 个文件
-
-## 发布流程（在站点项目根目录执行）
+更新日志已迁移为站点静态文件 `site/data/changelog.json`，随静态部署发布。
+新增条目请用：
 
 ```bash
-# 1. 同步资源并生成清单 + 当日更新日志
-python scripts/build_upstream.py --note "本次更新说明" --tags 点位,地图
+python scripts/bump_changelog.py --note "本次更新说明" --tags 界面,点位
+```
 
-# 2. 提交并推送（需要 GITHUB_TOKEN 环境变量）
+## 发布流程（站点项目根目录执行）
+
+```bash
+# 1. 生成 4 个产物（不联网、不推送）
+python scripts/build_upstream.py
+
+# 2. 提交并 force push（token 来自 GITHUB_TOKEN 或 server/.gh.token）
 python scripts/build_upstream.py --publish
 ```
 
-客户端更新入口：`site/js/upstream.js`（检查间隔、缓存名、镜像地址均在文件头部配置）。
+## 已废弃参数
+
+为兼容旧调用，以下参数仍可传入，但**全部为 no-op**（不报错、不产生作用）：
+
+`--note`、`--tags`、`--title`、`--no-changelog`、`--min-app`
+
+它们原本用于生成上游更新日志 / 设置最低客户端版本；新架构下更新日志走
+`bump_changelog.py`、代码版本走静态部署，这些信息都不再由上游仓库承载。
+
+## 当前版本
+
+- `version`: `2026.11.06.4`
+- `date`: `2026-11-06T23:35:45+08:00`
+- `announce.size`: `640` B
+- `announce.sha256`: `46e8a6c59b5326115ea4652bab0b079680898693ab0dfded7a7516a53e0fc91c`
