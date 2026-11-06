@@ -3,11 +3,14 @@
 
    apiBase 的取值按「这个主机自己有没有后端」决定，而不是写死 /api：
 
-     · 主站 atlas.meoyes.qzz.io —— Vercel 托管，/api/* 是真函数 → 同源 /api
+     · api.meoyes.qzz.io —— 独立部署的纯 API（Vercel 只跑 /api/*）→ 同源 /api
      · 本地开发 localhost/127.0.0.1 —— server/app-server.mjs 同进程分发 → 同源 /api
-     · 其它主机（EdgeOne 镜像 st.meoyes.qzz.io、各种预览域名）—— 纯静态，
-       没有 /api，必须以跨域方式打主站后端，否则登录会拿到平台的 404
+     · 其它主机（EdgeOne 站点 st.meoyes.qzz.io、各种预览域名）—— 纯静态，
+       没有 /api，必须跨域打 API 主机，否则登录会拿到平台的 404
          「The site does not exist」，前端只能显示「请求失败 404」
+
+   2026-11-06 起静态站与 API 彻底分家：Vercel 项目只剩一个 API，
+   页面全部由 EdgeOne 提供，所以除了 API 主机自己，其它来源都是跨域。
 
    为什么不用「先探 /api/health，失败再回退」：多一次往返，而且用户点登录时
    才失败会让人以为是账号问题。主机名是确定的，静态判断更可靠也更快。
@@ -24,10 +27,11 @@
 (function (w) {
   'use strict';
 
-  /* 主站：唯一带 /api 后端的部署 */
-  var PRIMARY = 'https://atlas.meoyes.qzz.io';
+  /* 接口所在地：独立部署的纯 API（Vercel 只跑 /api/*，不托管页面）。
+     站点静态资源在 EdgeOne，两边不同源，所以镜像站与主站都要跨域调它。 */
+  var PRIMARY = 'https://api.meoyes.qzz.io';
   /* 自带后端的主机（同源调用）；CDN 镜像与预览域名都不在列表里 */
-  var NATIVE = ['atlas.meoyes.qzz.io'];
+  var NATIVE = ['api.meoyes.qzz.io'];
   var LOCAL = /^(localhost|127\.0\.0\.1|\[::1\]|0\.0\.0\.0)$/i;
 
   function isNative(host) {

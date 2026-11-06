@@ -1,0 +1,29 @@
+{
+ "date": "2026-11-06",
+ "entries": [
+  {
+   "version": "2026.11.06.1",
+   "at": "2026-11-06T12:55+08:00",
+   "title": "修改 1",
+   "tags": [
+    "界面",
+    "接口"
+   ],
+   "note": "静态站与 API 分家：接口切到 api.meoyes.qzz.io（纯 API），邮件服务启用",
+   "summary": "修改 1 · 代码 2",
+   "added": [],
+   "changed": [
+    "data/atlas_overrides.json"
+   ],
+   "removed": [],
+   "codeAdded": [],
+   "codeChanged": [
+    "index.html",
+    "js/cloud-config.js"
+   ],
+   "codeRemoved": [],
+   "bytes": 81,
+   "codeBytes": 44088
+  }
+ ]
+}
