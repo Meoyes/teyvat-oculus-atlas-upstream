@@ -7,8 +7,8 @@
 
 | 路径 | 说明 |
 | --- | --- |
-| `manifest.json` | 轻量清单：`version` 与 `announce`（公告路径 / 字节数 / 完整 sha256） |
-| `manifest.json.sig` | `manifest.json` 的 Ed25519 签名 |
+| `manifest.json` | 轻量清单：`version` 与 `announce`（路径 / 字节数 / sha256）；`_sig` 内含正文与 Ed25519 签名，避免 CDN 缓存错配 |
+| `manifest.json.sig` | 对整个 `manifest.json` 的 Ed25519 签名（旧客户端兼容用） |
 | `data/announce.json` | 公告内容（来自站点 `site/data/announce.json`） |
 | `README.md` | 本说明 |
 
@@ -47,7 +47,7 @@ python scripts/build_upstream.py --publish
 
 ## 当前版本
 
-- `version`: `2026.11.06.4`
-- `date`: `2026-11-06T23:35:45+08:00`
+- `version`: `2026.11.07.1`
+- `date`: `2026-11-07T12:20:43+08:00`
 - `announce.size`: `640` B
 - `announce.sha256`: `46e8a6c59b5326115ea4652bab0b079680898693ab0dfded7a7516a53e0fc91c`
